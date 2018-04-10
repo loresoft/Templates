@@ -1,0 +1,76 @@
+﻿<%@ CodeTemplate Language="C#" TargetLanguage="SQL" Debug="True" Description="Generate List Stored Procedure." %>
+
+<%@ Assembly Name="SchemaExplorer" %>
+<%@ Assembly Name="System.Design" %>
+<%@ Assembly Name="System.Data" %>
+
+<%@ Assembly Src="Generator.cs" %>
+
+<%@ Import Namespace="SchemaExplorer" %>
+<%@ Import Namespace="System.Data" %>
+<%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
+
+<%@ Property Name="Table" Type="SchemaExplorer.TableSchema" Category="1.Database" Description="Table that the stored procedure should be based on." %>
+
+<%@ Property Name="IgnoreColumns" Type="System.Collections.Generic.List<string>" Category="2.Script" Optional="True" Description="List of Regex used to ignore columns" %>
+<%@ Property Name="IncludeOwner" Type="Boolean" Category="2.Script" Optional="False" Default="True" Description="Inclue table owner/schema if available." %>
+<%@ Property Name="IncludeOutput" Type="Boolean" Category="2.Script" Optional="False" Default="True" Description="Return the output columns." %>
+<%@ Property Name="EscapeFormat" Type="String" Category="2.Script" Optional="False" Default="[{0}]" Description="String format to escape names." %>
+<%@ Property Name="ParameterFormat" Type="String" Category="2.Script" Optional="False" Default="@{0}" Description="String format to parameter names." %>
+<%@ Property Name="ProcedureNameFormat" Type="String" Category="2.Script" Optional="False" Default="{0}List" Description="String format for stored procedure name." %>
+
+<%@ Property Name="WhereColumns" Type="System.Collections.Generic.List<string>" Category="3.Query" Optional="True" Description="List of columns for where clause" %>
+<%@ Property Name="SortColumns" Type="System.Collections.Generic.List<string>" Category="3.Query" Optional="True" Description="List of columns for sort clause" %>
+<%@ Property Name="SortDescending" Type="Boolean" Category="3.Query" Optional="True" Default="False" Description="Sort Descending." %>
+
+
+<% 
+var generator = new StoredProcedures.Generator();
+generator.EscapeFormat = this.EscapeFormat;
+generator.IncludeOwner = this.IncludeOwner;
+generator.ParameterFormat = this.ParameterFormat;
+generator.ProcedureNameFormat = this.ProcedureNameFormat;
+generator.IgnoreColumns.AddRange(IgnoreColumns ?? Enumerable.Empty<string>());
+
+string procedureName = generator.ProcedureName(Table); 
+string tableName = generator.TableName(Table); 
+
+string columnDefinition = generator.Columns(Table, "t", true);
+string countDefinition = generator.ColumnKeys(Table, alias: "t", firstOnly: true);
+string sortDefinition = generator.SortClause(Table, SortColumns, SortDescending, "t");
+string whereDefinition = generator.WhereClause(Table, WhereColumns, "t");
+string parameterDefinition = generator.ParameterClause(Table, WhereColumns);
+
+%>
+CREATE PROCEDURE <%= procedureName %>
+<% if (!string.IsNullOrEmpty(parameterDefinition)) { %>
+    <%= parameterDefinition %>,
+<% } %>
+    @Offset INT = 0,
+    @Size INT = 100,
+    @Total BIGINT OUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SET @Total = (
+        SELECT COUNT(<%= countDefinition %>)
+        FROM <%= tableName %> AS t
+<% if (!string.IsNullOrEmpty(whereDefinition)) { %>
+        WHERE <%= whereDefinition %>
+<% } %>
+    );
+
+    SELECT 
+        <%= columnDefinition %>
+    FROM <%= tableName %> AS t
+<% if (!string.IsNullOrEmpty(whereDefinition)) { %>
+    WHERE <%= whereDefinition %>
+<% } %>
+    ORDER BY <%= sortDefinition %>
+    OFFSET @Offset ROWS
+    FETCH NEXT @Size ROWS ONLY;
+
+    SET NOCOUNT OFF;
+END

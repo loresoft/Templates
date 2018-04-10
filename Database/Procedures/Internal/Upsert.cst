@@ -1,0 +1,79 @@
+﻿<%@ CodeTemplate Language="C#" TargetLanguage="SQL" Debug="True" Description="Generate Update or Insert by Primary Key Stored Procedure." %>
+
+<%@ Assembly Name="SchemaExplorer" %>
+<%@ Assembly Name="System.Design" %>
+<%@ Assembly Name="System.Data" %>
+
+<%@ Assembly Src="Generator.cs" %>
+
+<%@ Import Namespace="SchemaExplorer" %>
+<%@ Import Namespace="System.Data" %>
+<%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
+
+<%@ Property Name="Table" Type="SchemaExplorer.TableSchema" Category="1.Database" Description="Table that the stored procedure should be based on." %>
+<%@ Property Name="IgnoreColumns" Type="System.Collections.Generic.List<string>" Category="2.Script" Optional="True" Description="List of Regex used to ignore columns" %>
+<%@ Property Name="IncludeOwner" Type="Boolean" Category="2.Script" Optional="False" Default="True" Description="Inclue table owner/schema if available." %>
+<%@ Property Name="EscapeFormat" Type="String" Category="2.Script" Optional="False" Default="[{0}]" Description="String format to escape names." %>
+<%@ Property Name="ParameterFormat" Type="String" Category="2.Script" Optional="False" Default="@{0}" Description="String format to parameter names." %>
+<%@ Property Name="ProcedureNameFormat" Type="String" Category="2.Script" Optional="False" Default="{0}Upsert" Description="String format for stored procedure name." %>
+
+<% 
+var generator = new StoredProcedures.Generator();
+generator.EscapeFormat = this.EscapeFormat;
+generator.IncludeOwner = this.IncludeOwner;
+generator.ParameterFormat = this.ParameterFormat;
+generator.ProcedureNameFormat = this.ProcedureNameFormat;
+generator.IgnoreColumns.AddRange(IgnoreColumns ?? Enumerable.Empty<string>());
+
+string procedureName = generator.ProcedureName(Table); 
+string tableName = generator.TableName(Table);
+string parameterDefinition = generator.Parameters(Table, true);
+
+string selectDefinition = generator.Parameters(Table, allowIdentity: true, includeType: false, indent: 3);
+string columnDefinition = generator.Columns(Table, allowIdentity: true, indent: 2);
+string joinDefinition = generator.WhereFromSource(Table, indent: 2);
+
+string insertDefinition = generator.Columns(Table, indent: 3);
+string sourceDefinition = generator.Columns(Table, alias: "s", indent: 3);
+string updateDefinition = generator.UpdateFromSource(Table, indent: 3);
+string outputDefinition = generator.Columns(Table, "INSERTED", true, true);
+
+%>
+CREATE PROCEDURE <%= procedureName %>
+    <%= parameterDefinition %>
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    MERGE INTO <%= tableName %> AS t
+    USING
+    (
+        SELECT
+            <%= selectDefinition %>
+    )
+    AS s
+    (
+        <%= columnDefinition %>
+    )
+    ON
+    (
+        <%= joinDefinition %>
+    )
+    WHEN NOT MATCHED BY TARGET THEN 
+        INSERT
+        (
+            <%= insertDefinition %>
+        )
+        VALUES
+        (
+            <%= sourceDefinition %>
+        )
+    WHEN MATCHED THEN
+        UPDATE SET
+            <%= updateDefinition %>
+    OUTPUT
+        <%= outputDefinition %>;
+
+    SET NOCOUNT OFF;
+END

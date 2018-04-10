@@ -1,0 +1,51 @@
+﻿<%@ CodeTemplate Language="C#" TargetLanguage="SQL" Debug="True" Description="Generate Delete by Primary Key Stored Procedure." %>
+
+<%@ Assembly Name="SchemaExplorer" %>
+<%@ Assembly Name="System.Design" %>
+<%@ Assembly Name="System.Data" %>
+
+<%@ Assembly Src="Generator.cs" %>
+
+<%@ Import Namespace="SchemaExplorer" %>
+<%@ Import Namespace="System.Data" %>
+<%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
+
+<%@ Property Name="Table" Type="SchemaExplorer.TableSchema" Category="1.Database" Description="Table that the stored procedure should be based on." %>
+<%@ Property Name="IgnoreColumns" Type="System.Collections.Generic.List<string>" Category="2.Script" Optional="True" Description="List of Regex used to ignore columns" %>
+<%@ Property Name="IncludeOwner" Type="Boolean" Category="2.Script" Optional="False" Default="True" Description="Inclue table owner/schema if available." %>
+<%@ Property Name="IncludeOutput" Type="Boolean" Category="2.Script" Optional="False" Default="True" Description="Return the output columns." %>
+<%@ Property Name="EscapeFormat" Type="String" Category="2.Script" Optional="False" Default="[{0}]" Description="String format to escape names." %>
+<%@ Property Name="ParameterFormat" Type="String" Category="2.Script" Optional="False" Default="@{0}" Description="String format to parameter names." %>
+<%@ Property Name="ProcedureNameFormat" Type="String" Category="2.Script" Optional="False" Default="{0}Delete" Description="String format for stored procedure name." %>
+
+<% 
+var generator = new StoredProcedures.Generator();
+generator.EscapeFormat = this.EscapeFormat;
+generator.IncludeOwner = this.IncludeOwner;
+generator.ParameterFormat = this.ParameterFormat;
+generator.ProcedureNameFormat = this.ProcedureNameFormat;
+generator.IgnoreColumns.AddRange(IgnoreColumns ?? Enumerable.Empty<string>());
+
+string procedureName = generator.ProcedureName(Table); 
+string tableName = generator.TableName(Table); 
+string parameterDefinition = generator.ParameterKeys(Table);
+string outputDefinition = generator.Columns(Table, "DELETED", true, true);
+string whereDefinition = generator.WhereFromKey(Table);
+
+%>
+CREATE PROCEDURE <%= procedureName %>
+    <%= parameterDefinition %>
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DELETE FROM <%= tableName %>
+<% if (IncludeOutput) { %>
+    OUTPUT
+        <%= outputDefinition %>
+<% } %>
+    WHERE <%= whereDefinition %>;
+
+    SET NOCOUNT OFF;
+END
