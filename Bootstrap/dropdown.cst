@@ -1,0 +1,27 @@
+﻿<%@ Template Language="C#" TargetLanguage="HTML" %>
+<%@ Property Name="Name" Type="System.String" %>
+<%
+var identifier = StringUtil.ToPascalCase(Name);
+var singular = StringUtil.ToSingular(Name);
+%>
+<!-- <%= Name %> Menu -->
+<li class="nav-item dropdown">
+    <a id="navbarDropdown<%= identifier %>"
+       href="#"
+       class="nav-link dropdown-toggle"
+       data-toggle="dropdown"
+       aria-haspopup="true"
+       aria-expanded="false">
+      <%= Name %>
+    </a>
+    <div class="dropdown-menu"
+         aria-labelledby="navbarDropdown<%= identifier %>">
+        <a id="navbarView<%= identifier %>Link"
+           class="dropdown-item"
+           href="/<%= identifier.ToLower() %>">View <%= Name %></a>
+        <div class="dropdown-divider"></div>
+        <a id="navbarCreate<%= singular %>Link"
+           class="dropdown-item"
+           href="/<%= singular.ToLower() %>/create">Create <%= singular %></a>
+    </div>
+</li>

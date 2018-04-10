@@ -1,0 +1,23 @@
+﻿<%@ Template Language="C#" TargetLanguage="SQL" Debug="True" %>
+
+<%@ Property Name="TableName" Type="System.String" Optional="False" %>
+<%@ Property Name="SchemaName" Type="System.String" Optional="False" Default="dbo" %>
+
+CREATE TABLE [<%= SchemaName %>].[<%= TableName %>]
+(
+    [Id] int NOT NULL,
+    [Name] nvarchar(100)  NOT NULL,
+    [Description] nvarchar(255)  NULL,
+
+    [DisplayOrder] int NOT NULL CONSTRAINT [DF_<%= TableName %>_DisplayOrder] DEFAULT (0),
+
+    [IsActive] bit NOT NULL CONSTRAINT [DF_<%= TableName %>_IsActive] DEFAULT (1),
+
+    [SysCreateDate] datetime2 NOT NULL CONSTRAINT [DF_<%= TableName %>_SysCreateDate] DEFAULT (sysdatetime()),
+    [SysCreateUserName] nvarchar(100) NULL,
+    [SysUpdateDate] datetime2 NOT NULL CONSTRAINT [DF_<%= TableName %>_SysUpdateDate] DEFAULT (sysdatetime()),
+    [SysUpdateUserName] nvarchar(100) NULL,
+    [SysVersion] ROWVERSION NOT NULL,
+
+    CONSTRAINT [PK_<%= TableName %>] PRIMARY KEY CLUSTERED ([Id] ASC), 
+)

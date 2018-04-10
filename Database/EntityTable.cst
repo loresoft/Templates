@@ -1,0 +1,31 @@
+﻿<%@ Template Language="C#" TargetLanguage="SQL" Debug="True" %>
+
+<%@ Property Name="TableName" Type="System.String" Optional="False" %>
+<%@ Property Name="SchemaName" Type="System.String" Optional="False" Default="dbo" %>
+
+CREATE TABLE [<%= SchemaName %>].[<%= TableName %>]
+(
+    [Id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT [DF_<%= TableName %>_Id] DEFAULT (NEWSEQUENTIALID()),
+    [Name] NVARCHAR(100) NOT NULL,
+    [Description] NVARCHAR(255) NULL,
+
+    [OrganizationId] UNIQUEIDENTIFIER NOT NULL,
+
+    [Created] DATETIMEOFFSET NOT NULL CONSTRAINT [DF_<%= TableName %>_Created] DEFAULT (SYSUTCDATETIME()),
+    [CreatedBy] NVARCHAR(100) NULL,
+    [Updated] DATETIMEOFFSET NOT NULL CONSTRAINT [DF_<%= TableName %>_Updated] DEFAULT (SYSUTCDATETIME()),
+    [UpdatedBy] NVARCHAR(100) NULL,
+    [RowVersion] ROWVERSION NOT NULL,
+
+    CONSTRAINT [PK_<%= TableName %>] PRIMARY KEY NONCLUSTERED ([Id] ASC),
+    CONSTRAINT [FK_<%= TableName %>_Organization_OrganizationId] FOREIGN KEY ([OrganizationId]) REFERENCES [Organization]([Id]),
+)
+
+GO
+CREATE INDEX [IX_<%= TableName %>_Name]
+ON [<%= SchemaName %>].[<%= TableName %>] ([Name])
+
+GO
+CREATE INDEX [IX_<%= TableName %>_OrganizationId]
+ON [<%= SchemaName %>].[<%= TableName %>] ([OrganizationId])
+

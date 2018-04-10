@@ -1,0 +1,385 @@
+﻿<%@ CodeTemplate Language="C#" TargetLanguage="C#" Debug="True" Description="Generate Enum from table data" %>
+
+<%@ Assembly Name="SchemaExplorer" %>
+<%@ Assembly Name="System.Design" %>
+<%@ Assembly Name="System.Data" %>
+<%@ Assembly Name="CodeSmith.CustomProperties" %>
+
+<%@ Import Namespace="SchemaExplorer" %>
+<%@ Import Namespace="System.Data" %>
+<%@ Import Namespace="System.Data.SqlClient" %>
+<%@ Import Namespace="System.Collections.Generic" %>
+<%@ Import Namespace="System.Linq" %>
+<%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
+<%@ Import Namespace="CodeSmith.CustomProperties" %>
+
+<%@ Property Category="1.Database" Name="SourceTable" Optional="False"
+    Type="SchemaExplorer.TableSchema" 
+    Description="Table to get enum from." %>
+
+<%@ Property Category="1.Database" Name="SqlStatement"
+    Type="System.String" Default="" Optional="True"
+    Description="The sql statement to generate enum from."
+    Editor="System.ComponentModel.Design.MultilineStringEditor, System.Design, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" %>
+
+<%@ Property Category="2.Enum" Name="AsEnum"
+    Type="System.Boolean" Optional="False"
+    Description="Output as Enum."
+    Default="false" %>
+
+<%@ Property Category="2.Enum" Name="ValueColumn"
+    Type="CodeSmith.CustomProperties.StringCollection" Optional="False"
+    Description="List of regular expressions to identify an Enum Table's Name Column."
+    Default="(ID)|(Value)" %>
+
+<%@ Property Category="2.Enum" Name="NameColumn"
+    Type="CodeSmith.CustomProperties.StringCollection" Optional="False"
+    Description="List of regular expressions to identify an Enum Table's Name Column."
+    Default="(Name)|(TypeCode)" %>
+
+<%@ Property Category="2.Enum" Name="DescriptionColumn"
+    Type="CodeSmith.CustomProperties.StringCollection" Optional="True"
+    Description="List of regular expressions to identify an Enum Table's Description Column."
+    Default="Desc" %>
+
+<%@ Property Category="3.Project" Name="ClassName"
+    Type="System.String" Default="" Optional="True"
+    Description="The namespace to use for the entity class file."%>
+
+<%@ Property Category="3.Project" Name="ClassNamespace"
+    Type="System.String" Default="" Optional="False"
+    Description="The namespace to use for the entity class file."%>
+
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Text;
+
+namespace <%= this.ClassNamespace %>
+{
+<% 
+string className = string.IsNullOrWhiteSpace(ClassName) 
+    ? StringUtil.ToPascalCase(SourceTable.Name)
+    : ClassName;
+    
+var mapping = GetMapping();
+var count = mapping.Count;
+%>
+    public <% if (AsEnum) { %>enum <% } else { %>static class <% } %><%= className %>
+    {
+    <% foreach (var map in mapping) { %>
+        ///<summary><%= map.Description ?? map.Name %></summary>
+    <% if (map.Type == typeof(Guid)) { %>
+        public static readonly <%= map.Type.FullName %> <%= map.Name %> = new Guid("<%= map.Value %>");
+    <% } else if (AsEnum) { %>
+        <%= map.Name %> = <%= map.Value %>,
+    <% } else if (NeedQuote(map.Type)) { %>
+        public const <%= map.Type.FullName %> <%= map.Name %> = "<%= map.Value %>";
+    <% } else { %>
+        public const <%= map.Type.FullName %> <%= map.Name %> = <%= map.Value %>;
+    <% } // if guid %>
+    <% } // for each row %>
+    }
+}
+
+<script runat="template">
+public List<MappedField> GetMapping()
+{
+    if (!string.IsNullOrWhiteSpace(SqlStatement))
+        return GetSqlMapping();
+
+    return GetTableMapping();
+}
+
+public List<MappedField> GetSqlMapping()
+{
+    List<MappedField> list = new List<MappedField>();
+    
+    string sql = this.SqlStatement;
+    
+    string primaryKey = GetValueColumn();
+    string nameColumn = GetNameColumn();
+    string descriptionColumn = GetDescriptionColumn();
+
+    Debug.WriteLine("Columns; Value: {0}, Name: {1}, Description: {2}", primaryKey, nameColumn, descriptionColumn);
+    using (var connection = new SqlConnection(SourceTable.Database.ConnectionString))
+    {
+        connection.Open();
+        
+        var command = connection.CreateCommand();
+        command.CommandText = sql;
+        
+        using (var reader = command.ExecuteReader())
+        {
+            while(reader.Read())
+            {
+                int valueOrdinal = reader.GetOrdinal(primaryKey);
+                
+                string value = reader[valueOrdinal].ToString();
+                Type type = reader.GetFieldType(valueOrdinal);
+                
+                string name = reader[nameColumn] as String;
+                
+                string description = descriptionColumn != null && (SourceTable.Columns.Contains(descriptionColumn))
+                    ? reader[descriptionColumn] as String
+                    : null;
+
+                if (string.IsNullOrWhiteSpace(name))
+                    throw new ApplicationException(string.Format("Table '{0}' has an empty Name field value for key {1}.", SourceTable.FullName, value));
+
+                var map = new MappedField
+                {
+                    Name =  ToName(name),
+                    Description = description ?? name,
+                    Value = value,
+                    Type = type
+                };
+                list.Add(map);
+            }
+        }
+        
+    }
+    return list;
+}
+
+public List<MappedField> GetTableMapping()
+{
+    List<MappedField> list = new List<MappedField>();
+
+    string primaryKey = GetValueColumn();
+    string nameColumn = GetNameColumn();
+    string descriptionColumn = GetDescriptionColumn();
+
+    Debug.WriteLine("Columns; Value: {0}, Name: {1}, Description: {2}", primaryKey, nameColumn, descriptionColumn);
+    
+    DataTable table = SourceTable.GetTableData();
+    if (table.Rows.Count == 0)
+        throw new ApplicationException(string.Format(
+            "Table '{0}' was identified as an enum table but does not contain any rows. Please insert rows into the table or ignore the table.",
+            SourceTable.FullName));
+
+    Type valueType = table.Columns[primaryKey].DataType;
+    
+    foreach (DataRow row in table.Rows)
+    {
+        string value = row[primaryKey].ToString();
+        
+        string name = row[nameColumn] as String;
+        
+        string description = descriptionColumn != null && (table.Columns.Contains(descriptionColumn))
+            ? row[descriptionColumn] as String
+            : null;
+        
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ApplicationException(string.Format("Table '{0}' has an empty Name field value for key {1}.", SourceTable.FullName, value));
+
+        
+        var map = new MappedField
+        {
+            Name =  ToName(name),
+            Description = description ?? name,
+            Value = value,
+            Type = valueType
+        };
+        list.Add(map);
+    }
+    
+    return list;
+}
+
+public string GetValueColumn()
+{
+    var columns = SourceTable.Columns.Select(c => c.Name).ToList();
+
+    string result = MatchColumn(columns, ValueColumn.ToArray());
+    if (!string.IsNullOrEmpty(result))
+        return result;
+
+    if (SourceTable.HasPrimaryKey)
+        return SourceTable.PrimaryKey.MemberColumns
+            .Select(m => m.Name)
+            .First();
+    
+    return SourceTable.Columns
+        .Where(c => c.SystemType == typeof(byte) 
+            || c.SystemType == typeof(short) 
+            || c.SystemType == typeof(int) 
+            || c.SystemType == typeof(long)
+            || c.SystemType == typeof(Guid))
+        .Select(c => c.Name)
+        .First();
+}
+
+public string GetNameColumn()
+{
+    var columns = SourceTable.Columns.Select(c => c.Name).ToList();
+
+    string result = MatchColumn(columns, NameColumn.ToArray());
+    if (!string.IsNullOrEmpty(result))
+        return result;
+
+    return SourceTable.Columns
+        .Where(c => c.SystemType == typeof(string))
+        .Select(c => c.Name)
+        .First();
+}
+
+public string GetDescriptionColumn()
+{
+    var columns = SourceTable.Columns.Select(c => c.Name).ToList();
+    return MatchColumn(columns, DescriptionColumn.ToArray());
+}
+
+public string MatchColumn(List<string> columns, string[] matchExpressions)
+{
+    foreach(string match in matchExpressions)
+    {
+        foreach(string column in columns)
+        {
+            if (Regex.IsMatch(column, match, RegexOptions.IgnoreCase))
+                return column;
+        }
+    }
+    
+    return null;
+}
+
+public class MappedField
+{
+    public string Name { get; set; }
+    public string Description { get; set; }
+    public Type Type { get; set; }
+    public object Value { get; set; }
+}
+
+private string ToName(string name)
+{
+    string valueName = name;
+
+    // look for leading numbers, convert to words
+    var match = Regex.Match(valueName, @"^\d+");
+    if (match.Success)
+    {
+        int number;
+        int.TryParse(match.Value, out number);
+        string words = ToWords(number);
+
+        valueName = words + valueName.Substring(match.Index + match.Length);
+    }
+
+    return StringUtil.ToPascalCase(valueName);
+}
+
+private static string[] _ones = { "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine" };
+private static string[] _teens = { "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen" };
+private static string[] _tens = { "", "ten", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety" };
+private static string[] _thousands = { "", "thousand", "million", "billion", "trillion", "quadrillion" };
+
+public static string ToWords(int value)
+{
+    return ToWords(Convert.ToDecimal(value), false);
+}
+
+public static string ToWords(decimal value, bool includeFraction = true)
+{
+    // Use StringBuilder to build result
+    var builder = new StringBuilder();
+    long wholeNumber = (long)value;
+
+    // Convert integer portion of value to string
+    string digits = wholeNumber.ToString();
+
+    // Traverse characters in reverse order
+    for (int i = digits.Length - 1; i >= 0; i--)
+    {
+        int ndigit = digits[i] - '0';
+        int column = (digits.Length - (i + 1));
+        string temp;
+
+        // Determine if ones, tens, or hundreds column
+        switch (column % 3)
+        {
+            case 0:        // Ones position
+                bool showThousands = true;
+                if (i == 0)
+                {
+                    // First digit in number (last in loop)
+                    temp = String.Format("{0} ", _ones[ndigit]);
+                }
+                else if (digits[i - 1] == '1')
+                {
+                    // This digit is part of "teen" value
+                    temp = String.Format("{0} ", _teens[ndigit]);
+                    // Skip tens position
+                    i--;
+                }
+                else if (ndigit != 0)
+                {
+                    // Any non-zero digit
+                    temp = String.Format("{0} ", _ones[ndigit]);
+                }
+                else
+                {
+                    // This digit is zero. If digit in tens and hundreds
+                    // column are also zero, don't show "thousands"
+                    temp = String.Empty;
+                    // Test for non-zero digit in this grouping
+                    showThousands = digits[i - 1] != '0' || (i > 1 && digits[i - 2] != '0');
+                }
+
+                // Show "thousands" if non-zero in grouping
+                if (showThousands)
+                {
+                    if (column > 0)
+                    {
+                        temp = String.Format("{0}{1} ",
+                            temp,
+                            _thousands[column / 3]);
+                    }
+                }
+                builder.Insert(0, temp);
+                break;
+
+            case 1:        // Tens column
+                if (ndigit > 0)
+                {
+                    temp = String.Format("{0}{1}",
+                        _tens[ndigit],
+                        (digits[i + 1] != '0') ? "-" : " ");
+                    builder.Insert(0, temp);
+                }
+                break;
+
+            case 2:        // Hundreds column
+                if (ndigit > 0)
+                {
+                    temp = String.Format("{0} hundred ", _ones[ndigit]);
+                    builder.Insert(0, temp);
+                }
+                break;
+        }
+    }
+
+    // Append fractional portion/cents
+    if (includeFraction)
+        builder.AppendFormat("and {0:00}/100", (value - wholeNumber) * 100);
+
+    // Capitalize first letter
+    return String.Format("{0}{1}",
+        Char.ToUpper(builder[0]),
+        builder.ToString(1, builder.Length - 1)).Trim();
+}
+
+public bool NeedQuote(Type type)
+{
+    if (type == typeof(string))
+        return true;
+    if (type == typeof(DateTime))
+        return true;
+    if (type == typeof(Guid))
+        return true;
+
+    return false;
+}
+</script>

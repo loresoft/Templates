@@ -1,0 +1,25 @@
+﻿<%@ Template Language="C#" TargetLanguage="HTML" %>
+<%@ Property Name="FormName" Type="System.String" %>
+<%@ Property Name="InputName" Type="System.String" %>
+<%@ Property Name="ScopeName" Type="System.String" Default="viewModel." %>
+<%
+var placeHolder = StringUtil.ToSpacedWords(InputName);
+%>
+<!-- <%= FormName %>.<%= InputName %> -->
+<div class="control-group"
+     ng-class="{ 'error' : <%= FormName %>.<%= InputName %>.$invalid && (<%= FormName %>.<%= InputName %>.$touched || <%= FormName %>.$submitted) }">
+    <label for="<%= InputName %>" class="control-label">
+        <%= placeHolder %>:
+        <span class="text-error">*</span>
+    </label>
+    <input type="text" 
+           id="<%= InputName %>"
+           name="<%= InputName %>"
+           placeholder="<%= placeHolder %>"
+           required="required"
+           ng-model="<%= ScopeName %><%= InputName %>" />
+    <div ng-messages="<%= FormName %>.<%= InputName %>.$error" 
+         ng-if="<%= FormName %>.$submitted || <%= FormName %>.<%= InputName %>.$touched">
+        <span ng-message="required" class="help-inline"><%= placeHolder %> is required</span>
+    </div>
+</div>

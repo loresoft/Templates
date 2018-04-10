@@ -1,0 +1,22 @@
+﻿<%@ Template Language="C#" TargetLanguage="JavaScript" Debug="True" %>
+<%@ Property Name="ModuleName" Type="System.String" %>
+<%@ Property Name="DirectiveName" Type="System.String" %>
+
+/// <reference path="../_ref.ts" />
+
+module <%= ModuleName %> {
+    "use strict";
+
+    export class <%= DirectiveName %> {
+        static $inject = [
+        ];
+
+        constructor() {
+        }
+    }
+
+    // register directive
+    angular.module(<%= ModuleName %>.applicationName).directive('<%= StringUtil.ToCamelCase(DirectiveName) %>', [
+        <%= DirectiveName %>
+    ]);
+}

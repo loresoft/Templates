@@ -1,0 +1,47 @@
+﻿<%@ Template Language="C#" TargetLanguage="TypeScript" %>
+<%@ Property Name="ModuleName" Type="System.String" %>
+<%@ Property Name="ControllerName" Type="System.String" %>
+
+/// <reference path="../_ref.ts" />
+
+module <%= ModuleName %> {
+    "use strict";
+
+    export class <%= ControllerName %> {
+
+        // protect for minification, must match constructor signature.
+        static $inject = [
+            '$scope',
+            '$stateParams',
+            '$location'
+        ];
+
+        constructor(
+            $scope,
+            $stateParams,
+            $location: ng.ILocationService) {
+
+            var self = this;
+
+            // assign vm to controller
+            $scope.vm = this;
+            self.$scope = $scope;
+            self.$stateParams = $stateParams;
+            self.$location = $location;
+        }
+
+        $scope: any;
+        $stateParams: any;
+        $location: ng.ILocationService;
+
+    }
+
+    // register controller
+    angular.module(<%= ModuleName %>.applicationName).controller('<%= StringUtil.ToCamelCase(ControllerName) %>', [
+        '$scope',
+        '$stateParams',
+        '$location',
+        <%= ControllerName %> // class must be last
+    ]);
+}
+

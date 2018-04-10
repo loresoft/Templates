@@ -1,0 +1,74 @@
+﻿<%@ Template Language="C#" TargetLanguage="JavaScript" Debug="True" %>
+<%@ Assembly Name="SchemaExplorer" %>
+<%@ Assembly Name="System.Design" %>
+<%@ Assembly Name="System.Data" %>
+<%@ Assembly Name="CodeSmith.CustomProperties" %>
+
+<%@ Import Namespace="SchemaExplorer" %>
+<%@ Import Namespace="System.Collections.Generic" %>
+<%@ Import Namespace="System.Data" %>
+<%@ Import Namespace="System.Data.SqlClient" %>
+<%@ Import Namespace="System.Linq" %>
+
+<%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
+
+<%@ Property Category="1.Database" Name="Table" Optional="True"
+    Type="SchemaExplorer.TableSchema" 
+    Description="Tables to create merge statement from." %>
+<%@ Property Category="1.Database" Name="View" Optional="True"
+    Type="SchemaExplorer.ViewSchema" 
+    Description="Tables to create merge statement from." %>
+
+columns: [
+<% if (Table != null) { %>
+<% foreach(var column in Table.Columns) { %>
+    { field: "<%= column.Name %>", title: "<%= StringUtil.ToSpacedWords(column.Name) %>", width: "100px" },
+<% } %>
+<% } %>
+<% if (View != null) { %>
+<% foreach(var column in View.Columns) { %>
+    { field: "<%= column.Name %>", title: "<%= StringUtil.ToSpacedWords(column.Name) %>", width: "100px" },
+<% } %>
+<% } %>
+]
+
+<script runat="template">
+
+public string GetId(TableSchema table)
+{
+    var column = table.Columns
+        .Where(c => c.IsPrimaryKeyMember)
+        .Select(c=> c.Name)
+        .FirstOrDefault();
+    
+    return StringUtil.ToPascalCase(column);
+}
+
+public string GetScriptType(Type type)
+{
+    string t = type.Name;
+    switch(t)
+    {
+        case "DateTime": 
+        case "DateTimeOffset": 
+            return "date";
+        case "Byte": 
+        case "Decimal": 
+        case "Double": 
+        case "SByte": 
+        case "Single": 
+        case "Int16": 
+        case "Int32": 
+        case "Int64": 
+        case "UInt16": 
+        case "UInt32": 
+        case "UInt64": 
+            return "number";
+        case "Boolean":
+            return "boolean";
+        default: 
+            return "string";
+    }
+}
+</script>

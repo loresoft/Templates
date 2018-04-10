@@ -1,0 +1,46 @@
+﻿<%@ Template Language="C#" TargetLanguage="TypeScript" Debug="True" %>
+<%@ Property Name="ModuleName" Type="System.String" %>
+<%@ Property Name="EntityName" Type="System.String" %>
+
+/// <reference path="../_ref.ts" />
+
+module <%= ModuleName %> {
+    "use strict";
+
+    export class <%= EntityName %>Repository {
+        static $inject = [
+            '$http'
+        ];
+
+        urlBase: string = 'api/<%= EntityName %>';
+        $http: ng.IHttpService;
+
+        constructor(
+            $http: ng.IHttpService) {
+            this.$http = $http;
+        }
+
+        all(): ng.IHttpPromise<I<%= EntityName %>[]> {
+            return this.$http.get<I<%= EntityName %>[]>(this.urlBase);
+        }
+
+        find(id: string): ng.IHttpPromise<I<%= EntityName %>> {
+            return this.$http.get<I<%= EntityName %>>(this.urlBase + '/' + id);
+        }
+
+        save(<%= StringUtil.ToCamelCase(EntityName) %>: I<%= EntityName %>): ng.IHttpPromise<I<%= EntityName %>> {
+            return this.$http.post<I<%= EntityName %>>(this.urlBase, <%= StringUtil.ToCamelCase(EntityName) %>);
+        }
+
+        delete(id: string): ng.IHttpPromise<void> {
+            return this.$http.delete<void>(this.urlBase + '/' + id);
+        }
+
+    }
+
+    // register service
+    angular.module(<%= ModuleName %>.applicationName).service('<%= StringUtil.ToCamelCase(EntityName) %>Repository', [
+        '$http',
+        <%= EntityName %>Repository
+    ]);
+} 
