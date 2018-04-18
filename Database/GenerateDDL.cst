@@ -1,0 +1,319 @@
+﻿<%@ CodeTemplate Language="C#" TargetLanguage="SQL" Debug="True" 
+    Description="Create DDL Script from source database." %>
+
+
+<%@ Assembly Name="SchemaExplorer" %>
+<%@ Assembly Name="System.Design" %>
+<%@ Assembly Name="System.Data" %>
+
+<%@ Import Namespace="SchemaExplorer" %>
+<%@ Import Namespace="System.Data" %>
+<%@ Import Namespace="System.Text" %>
+
+<%@ Property Name="SourceDatabase" Type="SchemaExplorer.DatabaseSchema" Optional="False" Category="1.Database" Description="Database to create DDL from." %>
+<%@ Property Name="TargetDatabase" Type="DatabaseType" Optional="False" Default="SqlServer" Category="2.Script" Description="The target database type." %>
+
+-- Tables
+<% foreach (TableSchema table in SourceDatabase.Tables) { %>
+<% int counter = 0; %>
+<% bool hasPrimaryKey = WritePrimaryKey(table); %>
+CREATE TABLE<% if (SupportNotExists()) { Response.Write(" IF NOT EXISTS"); }%> <%= EscapeName(table.Name) %> (
+<% foreach (ColumnSchema column in table.Columns) { %>
+    <%= EscapeName(column.Name) %><%= ColumnOptions(column) %><% if (hasPrimaryKey || (++counter) < table.Columns.Count) { Response.Write(","); } %>
+<% } %>
+<% if (hasPrimaryKey) { %>
+    CONSTRAINT <%= EscapeName(table.PrimaryKey.Name) %> PRIMARY KEY (<%= MemberColumns(table.PrimaryKey.MemberColumns)%>)
+<% } %>
+);
+
+<% } // for each table%>
+
+-- Foreign Keys
+<% foreach (TableSchema table in SourceDatabase.Tables) { %>
+<% foreach (TableKeySchema key in table.ForeignKeys) { %>
+ALTER TABLE<% if (SupportNotExists()) { Response.Write(" IF EXISTS"); }%> <%= EscapeName(table.Name) %>
+    ADD CONSTRAINT <%= EscapeName(key.Name) %> FOREIGN KEY (<%= MemberColumns(key.ForeignKeyMemberColumns) %>) REFERENCES <%= EscapeName(key.PrimaryKeyTable.Name) %> (<%= MemberColumns(key.PrimaryKeyMemberColumns) %>);
+
+<% } %>
+<% } // for each table%>
+
+-- Indexes
+<% foreach (TableSchema table in SourceDatabase.Tables) { %>
+<% foreach (IndexSchema index in table.Indexes) { %>
+<% if (!index.IsPrimaryKey) { %>
+CREATE<% if (index.IsUnique) { Response.Write(" UNIQUE"); }%> INDEX<% if (SupportNotExists()) { Response.Write(" IF NOT EXISTS"); }%> <%= EscapeName(index.Name) %>
+ON <%= EscapeName(index.Table.Name) %> (<%= MemberColumns(index.MemberColumns) %>);
+
+<% } // IsPrimaryKey%>
+<% } // for each index%>
+<% } // for each table%>
+
+
+<script runat="template">
+public bool WritePrimaryKey(TableSchema table)
+{
+    if (!table.HasPrimaryKey)
+        return false;
+    
+    if (TargetDatabase != DatabaseType.Sqlite)
+        return true;
+    
+    bool isIdentity = table.PrimaryKey.MemberColumns.Count == 1
+        && table.PrimaryKey.MemberColumns.Any(c => IsIdentity(c));
+    
+    return !isIdentity;
+}
+
+public string MemberColumns(MemberColumnSchemaCollection columns)
+{
+    StringBuilder s = new StringBuilder();
+    for(int i = 0; i < columns.Count; i++)
+    {
+        MemberColumnSchema c = columns[i];
+        string name = EscapeName(c.Name);
+        s.Append(name);
+        if (i < columns.Count - 1)
+            s.Append(", ");
+    }
+    return s.ToString();
+}
+
+public string ColumnOptions(ColumnSchema column)
+{
+    var s = new StringBuilder();
+
+    var nativeType = GetType(column);
+    s.Append(" " + nativeType);
+    
+    if (IsIdentity(column) && TargetDatabase == DatabaseType.SqlServer)
+        s.Append( " IDENTITY(1,1)");
+        
+    if (column.AllowDBNull)
+        s.Append(" NULL");
+    else
+        s.Append(" NOT NULL");
+        
+    return s.ToString();
+}
+
+
+public string GetType(ColumnSchema column)
+{
+    switch(this.TargetDatabase)
+    {
+        case DatabaseType.MySql:
+            return GetPostgreSQLType(column);
+        case DatabaseType.PostgreSQL:
+            return GetPostgreSQLType(column);
+        case DatabaseType.Sqlite:
+            return GetSqliteType(column);
+        default:
+            return GetSqlServerType(column);
+    }
+
+}
+
+public string GetSqliteType(ColumnSchema column)
+{
+    bool isPrimary = column.IsPrimaryKeyMember 
+        && column.Table.HasPrimaryKey 
+        && column.Table.PrimaryKey.MemberColumns.Count == 1;
+
+    bool isIdentity = IsIdentity(column);
+
+    if (isPrimary && isIdentity)
+        return "integer NOT NULL PRIMARY KEY AUTOINCREMENT";
+
+    return GetSqlServerType(column);
+}
+
+public string GetSqlServerType(ColumnSchema column)
+{
+    string size;
+
+    switch (column.DataType)
+    {
+        case DbType.AnsiString:
+            size = column.Size == -1 ? "MAX" : column.Size.ToString();
+            return $"varchar({size})";
+        case DbType.AnsiStringFixedLength:
+            return $"char({column.Size})";
+        case DbType.Binary:
+            if (column.NativeType.Equals("timestamp", StringComparison.OrdinalIgnoreCase)
+                || column.NativeType.Equals("rowversion", StringComparison.OrdinalIgnoreCase))
+                return "rowversion";
+
+            size = column.Size == -1 ? "MAX" : column.Size.ToString();
+            return $"varbinary({size})";
+        case DbType.Boolean:
+            return "bit";
+        case DbType.Byte:
+            return "tinyint";
+        case DbType.Currency:
+            return $"decimal({column.Precision},{column.Scale})";
+        case DbType.Date:
+            return "date";
+        case DbType.DateTime:
+            return "datetime";
+        case DbType.DateTime2:
+            return "datetime2";
+        case DbType.DateTimeOffset:
+            return "datetimeoffset";
+        case DbType.Decimal:
+            return $"decimal({column.Precision},{column.Scale})";
+        case DbType.Double:
+            return "float";
+        case DbType.Guid:
+            return "uniqueidentifier";
+        case DbType.Int16:
+            return "smallint";
+        case DbType.Int32:
+            return "int";
+        case DbType.Int64:
+            return "bigint";
+        case DbType.SByte:
+            return "tinyint";
+        case DbType.Single:
+            return "real";
+        case DbType.String:
+            size = column.Size == -1 ? "MAX" : column.Size.ToString();
+            return "nvarchar";
+        case DbType.StringFixedLength:
+            size = column.Size == -1 ? "MAX" : column.Size.ToString();
+            return "nchar";
+        case DbType.Time:
+            return "time";
+        case DbType.Xml:
+            return "xml";
+    }
+
+    return column.NativeType;
+}
+
+public string GetPostgreSQLType(ColumnSchema column)
+{
+    bool isPrimary = column.IsPrimaryKeyMember 
+        && column.Table.HasPrimaryKey 
+        && column.Table.PrimaryKey.MemberColumns.Count == 1;
+
+    bool isIdentity = IsIdentity(column);
+
+    if (isPrimary && isIdentity)
+        return "serial";
+
+    switch (column.DataType)
+    {
+        case DbType.AnsiString:
+            return column.Size == -1 ? "text" : $"varchar({column.Size})";
+        case DbType.AnsiStringFixedLength:
+            return column.Size == -1 ? "text" : $"char({column.Size})";
+        case DbType.Binary:
+            return "bytea";
+        case DbType.Boolean:
+            return "bool";
+        case DbType.Byte:
+            return "int2";
+        case DbType.Currency:
+            return $"decimal({column.Precision},{column.Scale})";
+        case DbType.Date:
+            return "date";
+        case DbType.DateTime:
+            return "timestamp";
+        case DbType.DateTime2:
+            return "timestamptz";
+        case DbType.DateTimeOffset:
+            return "timestamptz";
+        case DbType.Decimal:
+            return $"decimal({column.Precision},{column.Scale})";
+        case DbType.Double:
+            return "float8";
+        case DbType.Guid:
+            return "uuid";
+        case DbType.Int16:
+            return "int2";
+        case DbType.Int32:
+            return "int4";
+        case DbType.Int64:
+            return "int8";
+        case DbType.SByte:
+            return "int2";
+        case DbType.Single:
+            return "float4";
+        case DbType.String:
+            return column.Size == -1 ? "text" : $"varchar({column.Size})";
+        case DbType.StringFixedLength:
+            return column.Size == -1 ? "text" : $"char({column.Size})";
+        case DbType.Time:
+            return "time";
+        case DbType.Xml:
+            return "xml";
+    }
+
+    return column.NativeType;
+}
+
+
+public string EscapeName(string name)
+{
+    switch(this.TargetDatabase)
+    {
+        case DatabaseType.MySql:
+            return string.Format("`{0}`", name);
+        case DatabaseType.PostgreSQL:
+        case DatabaseType.Sqlite:
+            return string.Format("\"{0}\"", name);
+        case DatabaseType.SqlServer:
+            return string.Format("[{0}]", name);
+        default:
+            return string.Format("\"{0}\"", name);
+    }
+}
+
+public bool SupportNotExists()
+{
+    switch(this.TargetDatabase)
+    {
+        case DatabaseType.SqlServer:
+            return false;
+        default:
+            return true;
+    }
+}
+
+public bool IsIdentity(DataObjectBase column)
+{
+    bool isIdentity = false;
+    try
+    {
+        if (column.ExtendedProperties.Contains(ExtendedPropertyNames.IsIdentity))
+        {
+            var value = column.ExtendedProperties[ExtendedPropertyNames.IsIdentity].Value.ToString();
+            bool.TryParse(value, out isIdentity);
+        }
+    }
+    catch (Exception ex)
+    {
+        Debug.WriteLine("Error: " + ex.Message);
+    }
+
+    return isIdentity;
+}
+
+public bool IsRowVersion(DataObjectBase column)
+{
+    bool isTimeStamp = column.NativeType.Equals(
+        "timestamp", StringComparison.OrdinalIgnoreCase);
+    bool isRowVersion = column.NativeType.Equals(
+        "rowversion", StringComparison.OrdinalIgnoreCase);
+
+    return (isTimeStamp || isRowVersion);
+}
+
+public enum DatabaseType
+{
+    MySql,
+    PostgreSQL,
+    Sqlite,
+    SqlServer
+}
+</script>
