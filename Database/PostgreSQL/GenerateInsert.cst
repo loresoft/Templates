@@ -101,7 +101,8 @@ public string BuildInsert(TableSchema table, string alias = null)
 
     for(int i = 0; i < table.Columns.Count; i++)
     {
-        if (IsSkipped(table.Columns[i]))
+        var column = table.Columns[i];
+        if (IsSkipped(column))
             continue;
         
         if (wroteColumn)
@@ -111,7 +112,7 @@ public string BuildInsert(TableSchema table, string alias = null)
         if (!string.IsNullOrEmpty(alias))
             s.AppendFormat("{0}.", alias);
 
-        s.AppendFormat(EscapeFormat, table.Columns[i].Name);
+        s.AppendFormat(EscapeFormat, column.Name);
         
         wroteColumn = true;
     }
@@ -129,7 +130,8 @@ public string BuildUpdate(TableSchema table, string sourceAlias = "s", string ta
     
     for(int i = 0; i < table.Columns.Count; i++)
     {
-        if (IsSkipped(table.Columns[i]))
+        var column = table.Columns[i];
+        if (IsSkipped(column) || column.IsPrimaryKeyMember)
             continue;
         
         if (wroteColumn)
@@ -137,9 +139,9 @@ public string BuildUpdate(TableSchema table, string sourceAlias = "s", string ta
 
         AppendWrap(s, 2);
         s.AppendFormat("{0}.", targetAlias);
-        s.AppendFormat(EscapeFormat, table.Columns[i].Name);
+        s.AppendFormat(EscapeFormat, column.Name);
         s.AppendFormat(" = {0}.", sourceAlias);
-        s.AppendFormat(EscapeFormat, table.Columns[i].Name);
+        s.AppendFormat(EscapeFormat, column.Name);
         
         wroteColumn = true;
     }
@@ -162,7 +164,8 @@ public string BuildRowValues(TableSchema table, DataTable data)
         AppendWrap(s, 2);
         for(int i = 0; i < row.ItemArray.Length; i++)
         {
-            if (IsSkipped(table.Columns[i]))
+            var column = table.Columns[i];
+            if (IsSkipped(column))
                 continue;
             
             if (wroteColumn)
@@ -198,7 +201,8 @@ public string BuildJoin(TableSchema table, string sourceAlias = "s", string targ
 
     for(int i = 0; i < table.Columns.Count; i++)
     {
-        if (!table.Columns[i].IsPrimaryKeyMember)
+        var column = table.Columns[i];
+        if (!column.IsPrimaryKeyMember)
             continue;
         
         if (wroteColumn)
@@ -206,9 +210,9 @@ public string BuildJoin(TableSchema table, string sourceAlias = "s", string targ
         
         AppendWrap(s, 1);
         s.AppendFormat("{0}.", targetAlias);
-        s.AppendFormat(EscapeFormat, table.Columns[i].Name);
+        s.AppendFormat(EscapeFormat, column.Name);
         s.AppendFormat(" = {0}.", sourceAlias);
-        s.AppendFormat(EscapeFormat, table.Columns[i].Name);
+        s.AppendFormat(EscapeFormat, column.Name);
         
         wroteColumn = true;
     }
