@@ -14,12 +14,15 @@
 
 <%@ Property Name="SourceDatabase" Type="SchemaExplorer.DatabaseSchema" Optional="False" Category="1.Database" Description="Database to create DDL from." %>
 <%@ Property Name="TargetDatabase" Type="DatabaseType" Optional="False" Default="SqlServer" Category="2.Script" Description="The target database type." %>
-
+<%@ Property Name="TargetSchema" Type="String" Optional="True" Category="2.Script" Description="The database schema to assign tables to" %>
 -- Tables
 <% foreach (TableSchema table in SourceDatabase.Tables) { %>
 <% int counter = 0; %>
 <% bool hasPrimaryKey = WritePrimaryKey(table); %>
-CREATE TABLE<% if (SupportNotExists()) { Response.Write(" IF NOT EXISTS"); }%> <%= EscapeName(table.Name) %> (
+<% if (TargetDatabase == DatabaseType.SqlServer) { %>
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'<%= SchemaName(table) %>') AND type in (N'U'))
+<% } %>
+CREATE TABLE<% if (SupportNotExists()) { Response.Write(" IF NOT EXISTS"); }%> <%= SchemaName(table) %> (
 <% foreach (ColumnSchema column in table.Columns) { %>
     <%= EscapeName(column.Name) %><%= ColumnOptions(column) %><% if (hasPrimaryKey || (++counter) < table.Columns.Count) { Response.Write(","); } %>
 <% } %>
@@ -33,8 +36,11 @@ CREATE TABLE<% if (SupportNotExists()) { Response.Write(" IF NOT EXISTS"); }%> <
 -- Foreign Keys
 <% foreach (TableSchema table in SourceDatabase.Tables) { %>
 <% foreach (TableKeySchema key in table.ForeignKeys) { %>
-ALTER TABLE<% if (SupportNotExists()) { Response.Write(" IF EXISTS"); }%> <%= EscapeName(table.Name) %>
-    ADD CONSTRAINT <%= EscapeName(key.Name) %> FOREIGN KEY (<%= MemberColumns(key.ForeignKeyMemberColumns) %>) REFERENCES <%= EscapeName(key.PrimaryKeyTable.Name) %> (<%= MemberColumns(key.PrimaryKeyMemberColumns) %>);
+<% if (TargetDatabase == DatabaseType.SqlServer) { %>
+IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE object_id = OBJECT_ID(N'<%= SchemaName(key) %>') AND parent_object_id = OBJECT_ID(N'<%= SchemaName(table) %>'))
+<% } %>
+ALTER TABLE<% if (SupportNotExists()) { Response.Write(" IF EXISTS"); }%> <%= SchemaName(table) %>
+    ADD CONSTRAINT <%= EscapeName(key.Name) %> FOREIGN KEY (<%= MemberColumns(key.ForeignKeyMemberColumns) %>) REFERENCES <%= SchemaName(key.PrimaryKeyTable) %> (<%= MemberColumns(key.PrimaryKeyMemberColumns) %>);
 
 <% } // for each foreign key%>
 <% } // for each table%>
@@ -43,8 +49,11 @@ ALTER TABLE<% if (SupportNotExists()) { Response.Write(" IF EXISTS"); }%> <%= Es
 <% foreach (TableSchema table in SourceDatabase.Tables) { %>
 <% foreach (IndexSchema index in table.Indexes) { %>
 <% if (!index.IsPrimaryKey) { %>
+<% if (TargetDatabase == DatabaseType.SqlServer) { %>
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'<%= SchemaName(table) %>') AND name = N'<%= index.Name %>')
+<% } %>
 CREATE<% if (index.IsUnique) { Response.Write(" UNIQUE"); }%> INDEX<% if (SupportNotExists()) { Response.Write(" IF NOT EXISTS"); }%> <%= EscapeName(index.Name) %>
-ON <%= EscapeName(index.Table.Name) %> (<%= MemberColumns(index.MemberColumns) %>);
+ON <%= SchemaName(index.Table) %> (<%= MemberColumns(index.MemberColumns) %>);
 
 <% } // IsPrimaryKey%>
 <% } // for each index%>
@@ -376,6 +385,15 @@ public string GetPostgreSQLType(ColumnSchema column)
     return column.NativeType;
 }
 
+public string SchemaName(SchemaObjectBase schemaObject)
+{
+    string name = "";
+    if (!string.IsNullOrEmpty(TargetSchema))
+        name = EscapeName(TargetSchema) + ".";
+    
+    name += EscapeName(schemaObject.Name);
+    return name;
+}
 
 public string EscapeName(string name)
 {

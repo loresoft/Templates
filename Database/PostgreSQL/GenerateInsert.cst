@@ -24,48 +24,33 @@
     Type="Boolean" Description="Inclue table owner/schema if available." %>
 <%@ Property Category="2.Script" Name="IncludeIdentity" Optional="False" Default="False"
     Type="Boolean" Description="Inclue idenity columns." %>
-<%@ Property Category="2.Script" Name="IncludeInsert" Optional="False" Default="True"
-    Type="Boolean" Description="Inclue table insert statements." %>
 <%@ Property Category="2.Script" Name="IncludeUpdate" Optional="False" Default="True"
     Type="Boolean" Description="Inclue table update statemenst." %>
-<%@ Property Category="2.Script" Name="EscapeFormat" Optional="False" Default="[{0}]"
-    Type="String" Description="String format to escape names." %>
 <%@ Property Category="2.Script" Name="DateTimeFormat" Optional="False" Default="u"
     Type="String" Description="DateTime string format. Default is Universal sortable. 2008-04-10 13:30:00Z" %>
 
 <% foreach (TableSchema table in Tables) { %>
 <% string tableName = BuildTableName(table); %>
 <% string columnDefinition = BuildColumns(table); %>
-<% string insertDefinition = BuildInsert(table); %>
-<% string sourceDefinition = BuildInsert(table, "s"); %>
 <% string updateDefinition = BuildUpdate(table); %>
 <% DataTable data = table.GetTableData(); %>
 -- Table <%= tableName %> data
 
 <% if (data.Rows.Count > 0) { %>
-MERGE INTO <%= tableName %> AS t
-USING 
-(
-    VALUES
-<%= BuildRowValues(table, data) %>
-) 
-AS s
+INSERT INTO <%= tableName %> 
 <%= columnDefinition %>
-ON <%= BuildJoin(table) %>
-<% if (IncludeInsert) { %>
-WHEN NOT MATCHED BY TARGET THEN 
-    INSERT <%= insertDefinition %>
-    VALUES <%= sourceDefinition %>
-<% } // include insert %>
+VALUES
+<%= BuildRowValues(table, data) %>
 <% if (IncludeUpdate) { %>
-WHEN MATCHED THEN 
-    UPDATE SET <%= updateDefinition %>
+ON CONFLICT <%= BuildJoin(table) %>
+DO UPDATE SET <%= updateDefinition %>
 <% } // include update %>
-OUTPUT $action as [Action];
 
 <% } // for each table%>
 <% } // has data%>
 <script runat="template">
+public const string EscapeFormat = "\"{0}\"";
+
 public string BuildColumns(TableSchema table)
 {
     StringBuilder s = new StringBuilder();
@@ -91,39 +76,7 @@ public string BuildColumns(TableSchema table)
     return s.ToString();
 }
 
-public string BuildInsert(TableSchema table, string alias = null)
-{
-    StringBuilder s = new StringBuilder();
-    bool wroteColumn = false;
-
-    AppendWrap(s, 1);
-    s.Append("(");
-
-    for(int i = 0; i < table.Columns.Count; i++)
-    {
-        var column = table.Columns[i];
-        if (IsSkipped(column))
-            continue;
-        
-        if (wroteColumn)
-            s.Append(", ");
-        
-        AppendWrap(s, 2);
-        if (!string.IsNullOrEmpty(alias))
-            s.AppendFormat("{0}.", alias);
-
-        s.AppendFormat(EscapeFormat, column.Name);
-        
-        wroteColumn = true;
-    }
-    
-    AppendWrap(s, 1);
-    s.Append(")");
-    
-    return s.ToString();
-}
-
-public string BuildUpdate(TableSchema table, string sourceAlias = "s", string targetAlias = "t")
+public string BuildUpdate(TableSchema table)
 {
     StringBuilder s = new StringBuilder();
     bool wroteColumn = false;
@@ -137,10 +90,9 @@ public string BuildUpdate(TableSchema table, string sourceAlias = "s", string ta
         if (wroteColumn)
             s.Append(", ");
 
-        AppendWrap(s, 2);
-        s.AppendFormat("{0}.", targetAlias);
+        AppendWrap(s, 1);
         s.AppendFormat(EscapeFormat, column.Name);
-        s.AppendFormat(" = {0}.", sourceAlias);
+        s.Append(" = EXCLUDED.");
         s.AppendFormat(EscapeFormat, column.Name);
         
         wroteColumn = true;
@@ -191,7 +143,7 @@ public string BuildRowValues(TableSchema table, DataTable data)
     return s.ToString();
 }
 
-public string BuildJoin(TableSchema table, string sourceAlias = "s", string targetAlias = "t")
+public string BuildJoin(TableSchema table)
 {
     StringBuilder s = new StringBuilder();
     bool wroteColumn = false;
@@ -206,12 +158,9 @@ public string BuildJoin(TableSchema table, string sourceAlias = "s", string targ
             continue;
         
         if (wroteColumn)
-            s.Append(" and ");
+            s.Append(", ");
         
         AppendWrap(s, 1);
-        s.AppendFormat("{0}.", targetAlias);
-        s.AppendFormat(EscapeFormat, column.Name);
-        s.AppendFormat(" = {0}.", sourceAlias);
         s.AppendFormat(EscapeFormat, column.Name);
         
         wroteColumn = true;
@@ -238,6 +187,8 @@ public bool NeedQuote(Type type)
         return true;
     if (type == typeof(DateTime))
         return true;
+    if (type == typeof(DateTimeOffset))
+        return true;
     if (type == typeof(Guid))
         return true;
 
@@ -254,10 +205,12 @@ public string GetValue(object value)
         return (string)value;
     if (type == typeof(DateTime))
         return ((DateTime)value).ToString(DateTimeFormat);
+    if (type == typeof(DateTimeOffset))
+        return ((DateTimeOffset)value).ToString(DateTimeFormat);
     if (type == typeof(byte[]))
         return ToHex((byte[])value);
     if (type == typeof(bool))
-        return Convert.ToString(Convert.ToInt32((bool)value));
+        return Convert.ToString((bool)value);
     
     return Convert.ToString(value);
 }
