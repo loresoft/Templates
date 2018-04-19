@@ -5,19 +5,19 @@
 
 CREATE TABLE [<%= SchemaName %>].[<%= TableName %>]
 (
-    [Id] int NOT NULL,
-    [Name] nvarchar(100)  NOT NULL,
-    [Description] nvarchar(255)  NULL,
+    [Id] INT NOT NULL,
+    [Name] NVARCHAR(100)  NOT NULL,
+    [Description] NVARCHAR(255)  NULL,
 
-    [DisplayOrder] int NOT NULL CONSTRAINT [DF_<%= TableName %>_DisplayOrder] DEFAULT (0),
+    [DisplayOrder] INT NOT NULL CONSTRAINT [DF_<%= TableName %>_DisplayOrder] DEFAULT (0),
 
-    [IsActive] bit NOT NULL CONSTRAINT [DF_<%= TableName %>_IsActive] DEFAULT (1),
+    [IsActive] BIT NOT NULL CONSTRAINT [DF_<%= TableName %>_IsActive] DEFAULT (1),
 
-    [SysCreateDate] datetime2 NOT NULL CONSTRAINT [DF_<%= TableName %>_SysCreateDate] DEFAULT (sysdatetime()),
-    [SysCreateUserName] nvarchar(100) NULL,
-    [SysUpdateDate] datetime2 NOT NULL CONSTRAINT [DF_<%= TableName %>_SysUpdateDate] DEFAULT (sysdatetime()),
-    [SysUpdateUserName] nvarchar(100) NULL,
-    [SysVersion] ROWVERSION NOT NULL,
+    [Created] DATETIMEOFFSET NOT NULL CONSTRAINT [DF_<%= TableName %>_Created] DEFAULT (SYSUTCDATETIME()),
+    [CreatedBy] NVARCHAR(100) NULL,
+    [Updated] DATETIMEOFFSET NOT NULL CONSTRAINT [DF_<%= TableName %>_Updated] DEFAULT (SYSUTCDATETIME()),
+    [UpdatedBy] NVARCHAR(100) NULL,
+    [RowVersion] ROWVERSION NOT NULL,
 
     CONSTRAINT [PK_<%= TableName %>] PRIMARY KEY CLUSTERED ([Id] ASC), 
 )

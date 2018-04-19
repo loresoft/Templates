@@ -8,7 +8,9 @@
 
 <%@ Import Namespace="SchemaExplorer" %>
 <%@ Import Namespace="System.Data" %>
+<%@ Import Namespace="System.Linq" %>
 <%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
 
 <%@ Property Name="SourceDatabase" Type="SchemaExplorer.DatabaseSchema" Optional="False" Category="1.Database" Description="Database to create DDL from." %>
 <%@ Property Name="TargetDatabase" Type="DatabaseType" Optional="False" Default="SqlServer" Category="2.Script" Description="The target database type." %>
@@ -34,7 +36,7 @@ CREATE TABLE<% if (SupportNotExists()) { Response.Write(" IF NOT EXISTS"); }%> <
 ALTER TABLE<% if (SupportNotExists()) { Response.Write(" IF EXISTS"); }%> <%= EscapeName(table.Name) %>
     ADD CONSTRAINT <%= EscapeName(key.Name) %> FOREIGN KEY (<%= MemberColumns(key.ForeignKeyMemberColumns) %>) REFERENCES <%= EscapeName(key.PrimaryKeyTable.Name) %> (<%= MemberColumns(key.PrimaryKeyMemberColumns) %>);
 
-<% } %>
+<% } // for each foreign key%>
 <% } // for each table%>
 
 -- Indexes
@@ -92,8 +94,130 @@ public string ColumnOptions(ColumnSchema column)
         s.Append(" NULL");
     else
         s.Append(" NOT NULL");
-        
+    
+    var defaultValue = GetDefault(column);
+    if (!string.IsNullOrEmpty(defaultValue))
+    {
+        s.Append( " DEFAULT ");
+        s.Append(defaultValue);
+    }
     return s.ToString();
+}
+
+
+public string GetDefault(ColumnSchema column)
+{
+    if (column.IsPrimaryKeyMember)
+        return null;
+    
+    if (!column.ExtendedProperties.Contains(ExtendedPropertyNames.DefaultValue))
+        return null;
+    
+    string defaultValue = column.ExtendedProperties[ExtendedPropertyNames.DefaultValue].Value.ToString();
+    Debug.WriteLine("Default:" + defaultValue);
+    
+    switch (column.DataType)
+    {
+        case DbType.AnsiString:
+        case DbType.AnsiStringFixedLength:
+        case DbType.String:
+        case DbType.StringFixedLength:
+            var stringMatch = Regex.Match(defaultValue, @"('(?:[^']|'')*')");
+            if (!stringMatch.Success)
+                return null;
+            
+            return stringMatch.Value;
+        case DbType.Boolean:
+            var booleanMatch = Regex.Match(defaultValue, @"((?:[Tt]rue|1)|(?:[Ff]alse|0))");
+            if (!booleanMatch.Success)
+                return null;
+            
+            bool value = Regex.IsMatch(defaultValue, @"([Tt]rue|1)");
+            return string.Format("({0})", GetDefaultBoolean(value));
+        case DbType.Byte:
+        case DbType.Currency:
+        case DbType.Int16:
+        case DbType.Int32:
+        case DbType.Int64:
+        case DbType.SByte:
+        case DbType.Single:
+        case DbType.Decimal:
+        case DbType.Double:
+            var numberMatch = Regex.Match(defaultValue, @"(\d+(?:\.\d{1,})?)");
+            if (!numberMatch.Success)
+                return null;
+
+            return string.Format("({0})", numberMatch.Value);
+        case DbType.Date:
+        case DbType.DateTime:
+        case DbType.DateTime2:
+        case DbType.DateTimeOffset:
+            if (!Regex.IsMatch(defaultValue, @"(sysdatetime|sysutcdatetime|getdate|getutcdate|now|current_timestamp)", RegexOptions.IgnoreCase))
+                return null;
+
+            var dateGenerator = GetDefaultDate();
+            if (string.IsNullOrEmpty(dateGenerator))
+                return null;
+            
+            return dateGenerator;
+        case DbType.Guid:
+            if (!Regex.IsMatch(defaultValue, @"(newsequentialid|newid|uuid_generate_v1|uuid_generate_v4)", RegexOptions.IgnoreCase))
+                return null;
+            
+            var idGenerator = GetDefaultGuid();
+            if (string.IsNullOrEmpty(idGenerator))
+                return null;
+            
+            return idGenerator;
+    }
+    
+    return null;
+}
+
+public string GetDefaultGuid()
+{
+    switch(this.TargetDatabase)
+    {
+        case DatabaseType.MySql:
+            return "(uuid())";
+        case DatabaseType.PostgreSQL:
+            return "(uuid_generate_v4())";
+        case DatabaseType.SqlServer:
+            return "(newsequentialid())";
+        default:
+            return null;
+    }
+}
+
+public string GetDefaultDate()
+{
+    switch(this.TargetDatabase)
+    {
+        case DatabaseType.Sqlite:
+        case DatabaseType.MySql:
+            return ("CURRENT_TIMESTAMP");
+        case DatabaseType.PostgreSQL:
+            return "(now() at time zone 'utc')";
+        case DatabaseType.SqlServer:
+            return "(sysutcdatetime())";
+        default:
+            return null;
+    }
+}
+
+public string GetDefaultBoolean(bool value)
+{
+    switch(this.TargetDatabase)
+    {
+        case DatabaseType.Sqlite:
+        case DatabaseType.SqlServer:
+            return value ? "1" : "0";
+        case DatabaseType.MySql:
+        case DatabaseType.PostgreSQL:
+            return value ? "true" : "false";
+        default:
+            return null;
+    }
 }
 
 
