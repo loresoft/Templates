@@ -1,0 +1,89 @@
+﻿<%@ CodeTemplate Language="C#" TargetLanguage="SQL" Debug="True" %>
+
+<%@ Assembly Name="SchemaExplorer" %>
+
+<%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
+
+<%@ Property Category="1.Database" Name="SourceTable" Optional="False"
+    Type="SchemaExplorer.TableSchema" 
+    Description="Table to get enum from." %>
+
+<%
+string schema = SourceTable.Owner;
+string key = GetKeyColumnName();
+%>
+
+/*************************************************************************
+**
+** NAME:         <%= schema %>.Delete<%= SourceTable.Name %>
+**
+** CREATED:      <%= DateTime.Now.ToString("d") %>
+**
+** AUTHOR:       WELTPAU
+**
+** DESCRIPTION:  Delete <%= SourceTable.Name %>
+**     
+** CHANGES:
+*************************************************************************/
+CREATE PROCEDURE [<%= schema %>].[Delete<%= SourceTable.Name %>]
+    (
+     @IDTable <%= schema %>.IDType READONLY,
+     @NTUser VARCHAR(12),
+     @System VARCHAR(200),
+     @SessionKey VARCHAR(50),
+     @Token VARCHAR(50)
+    )
+AS 
+BEGIN 
+
+----------------------------------------------------------------------
+-- Set NOCOUNT to "on" to disable the "row(s) affected" messages.
+----------------------------------------------------------------------
+    SET NOCOUNT ON
+  
+----------------------------------------------------------------------
+-- Declaration
+----------------------------------------------------------------------
+        
+----------------------------------------------------------------------
+-- Initialization
+----------------------------------------------------------------------
+    
+---------------------------------------------------------------------
+-- Validate Parameters
+---------------------------------------------------------------------
+
+---------------------------------------------------------------------
+-- Insert, Update, Delete, Select, Search.
+---------------------------------------------------------------------    
+
+    MERGE [<%= schema %>].[<%= SourceTable.Name %>] with (ROWLOCK) AS D
+    USING @IDTable AS I
+        ON D.[<%= key %>] = I.[ID]
+    WHEN MATCHED THEN
+        DELETE;
+
+----------------------------------------------------------------------
+-- Error Handler
+----------------------------------------------------------------------
+
+END
+
+GO
+GRANT EXECUTE
+    ON OBJECT::[<%= schema %>].[Delete<%= SourceTable.Name %>] TO [Execute]
+    AS [dbo];
+
+
+GO
+GRANT VIEW DEFINITION
+    ON OBJECT::[<%= schema %>].[Delete<%= SourceTable.Name %>] TO [Execute]
+    AS [dbo];
+
+<script runat="template">
+public string GetKeyColumnName()
+{
+    return SourceTable.PrimaryKey.MemberColumns.First().Name;
+}
+</script>

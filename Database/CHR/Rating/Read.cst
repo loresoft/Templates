@@ -1,0 +1,120 @@
+﻿<%@ CodeTemplate Language="C#" TargetLanguage="SQL" Debug="True" %>
+
+<%@ Assembly Name="SchemaExplorer" %>
+
+<%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
+
+<%@ Property Category="1.Database" Name="SourceTable" Optional="False"
+    Type="SchemaExplorer.TableSchema" 
+    Description="Table to get enum from." %>
+
+<%
+string schema = SourceTable.Owner;
+string alias = GetAlias();
+%>
+
+/*************************************************************************
+**
+** NAME:         <%= schema %>.Read<%= SourceTable.Name %>
+**
+** CREATED:      <%= DateTime.Now.ToString("d") %>
+**
+** AUTHOR:       WELTPAU
+**
+** DESCRIPTION:  Read <%= SourceTable.Name %>
+**     
+** CHANGES:
+*************************************************************************/
+CREATE PROCEDURE [<%= schema %>].[Read<%= SourceTable.Name %>]
+    (
+     @IDTable <%= schema %>.IDType READONLY,
+     @NTUser VARCHAR(12),
+     @System VARCHAR(200),
+     @SessionKey VARCHAR(50),
+     @Token VARCHAR(50)
+    )
+AS 
+BEGIN 
+    
+----------------------------------------------------------------------
+-- Set NOCOUNT to "on" to disable the "row(s) affected" messages.
+----------------------------------------------------------------------
+    SET NOCOUNT ON
+  
+----------------------------------------------------------------------
+-- Declaration
+----------------------------------------------------------------------
+        
+----------------------------------------------------------------------
+-- Initialization
+----------------------------------------------------------------------
+    
+---------------------------------------------------------------------
+-- Validate Parameters
+---------------------------------------------------------------------
+
+---------------------------------------------------------------------
+-- Insert, Update, Delete, Select, Search.
+---------------------------------------------------------------------    
+
+    SELECT <%= GetColumns(alias) %>
+    FROM [<%= schema %>].[<%= SourceTable.Name %>] AS <%= alias %> WITH (NOLOCK)
+        INNER JOIN @IDTable AS i
+            ON <%= alias %>.[<%= GetKeyColumnName() %>] = i.[ID]
+    
+
+----------------------------------------------------------------------
+-- Error Handler
+----------------------------------------------------------------------
+
+END
+
+GO
+GRANT EXECUTE
+    ON OBJECT::[<%= schema %>].[Read<%= SourceTable.Name %>] TO [Execute]
+    AS [dbo];
+
+
+GO
+GRANT VIEW DEFINITION
+    ON OBJECT::[<%= schema %>].[Read<%= SourceTable.Name %>] TO [Execute]
+    AS [dbo];
+
+<script runat="template">
+public string GetKeyColumnName()
+{
+    return SourceTable.PrimaryKey.MemberColumns.First().Name;
+}
+
+public string GetAlias()
+{
+    var alias = string.Empty;
+    var name = SourceTable.Name;
+    var matches = Regex.Matches(name, @"[A-Z]");
+    foreach(Match match in matches){
+        alias += match.Value.ToLower();
+    }
+    
+    return alias;
+}
+
+public string GetColumns(string alias)
+{
+    var builder = new StringBuilder();
+    foreach(var column in SourceTable.Columns)
+    {
+        if (builder.Length > 0 )
+            builder.Append(",").AppendLine().Append("           ");
+        
+        builder.Append(alias).Append(".").Append(EscapeName(column.Name));
+    }
+    
+    return builder.ToString();
+}
+
+public string EscapeName(string name)
+{
+    return string.Format("[{0}]", name);
+}
+</script>

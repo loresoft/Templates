@@ -1,0 +1,159 @@
+﻿<%@ CodeTemplate Language="C#" TargetLanguage="SQL" Debug="True" %>
+
+<%@ Assembly Name="SchemaExplorer" %>
+
+<%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
+
+<%@ Property Category="1.Database" Name="SourceTable" Optional="False"
+    Type="SchemaExplorer.TableSchema" 
+    Description="Table to get enum from." %>
+
+<%
+string schema = SourceTable.Owner;
+string alias = GetAlias();
+%>
+
+/*************************************************************************
+**
+** NAME:         <%= schema %>.Merge<%= SourceTable.Name %>
+**
+** CREATED:      <%= DateTime.Now.ToString("d") %>
+**
+** AUTHOR:       WELTPAU
+**
+** DESCRIPTION:  Merge <%= SourceTable.Name %>
+**     
+** CHANGES:
+*************************************************************************/
+CREATE PROCEDURE [<%= schema %>].[Merge<%= SourceTable.Name %>]
+    (
+     @<%= SourceTable.Name %>Table [<%= schema %>].[<%= SourceTable.Name %>Type] READONLY,
+     @NTUser VARCHAR(12),
+     @System VARCHAR(200),
+     @SessionKey VARCHAR(50),
+     @Token VARCHAR(50)
+    )
+AS 
+BEGIN 
+
+----------------------------------------------------------------------
+-- Set NOCOUNT to "on" to disable the "row(s) affected" messages.
+----------------------------------------------------------------------
+    SET NOCOUNT ON
+
+----------------------------------------------------------------------
+-- Declaration
+----------------------------------------------------------------------
+
+----------------------------------------------------------------------
+-- Initialization
+----------------------------------------------------------------------
+
+---------------------------------------------------------------------
+-- Validate Parameters
+---------------------------------------------------------------------
+
+---------------------------------------------------------------------
+-- Insert, Update, Delete, Select, Search.
+---------------------------------------------------------------------    
+
+    MERGE [<%= schema %>].[<%= SourceTable.Name %>] WITH (ROWLOCK) AS <%= alias %>
+    USING @<%= SourceTable.Name %>Table AS <%= alias %>t
+        ON <%= alias %>.[<%= GetKeyColumnName() %>] = <%= alias %>t.[<%= GetKeyColumnName() %>]
+    WHEN MATCHED THEN
+        UPDATE SET
+<%= GetColumns(alias, true)%>
+    WHEN NOT MATCHED THEN
+    INSERT
+        (
+<%= GetColumns(string.Empty, false)%>
+        )
+    VALUES 
+        (
+<%= GetColumns(alias, false)%>
+        );
+
+----------------------------------------------------------------------
+-- Error Handler
+----------------------------------------------------------------------
+
+END
+
+GO
+GRANT EXECUTE
+    ON OBJECT::[<%= schema %>].[Merge<%= SourceTable.Name %>] TO [Execute]
+    AS [dbo];
+
+
+GO
+GRANT VIEW DEFINITION
+    ON OBJECT::[<%= schema %>].[Merge<%= SourceTable.Name %>] TO [Execute]
+    AS [dbo];
+
+<script runat="template">
+public string GetKeyColumnName()
+{
+    return SourceTable.PrimaryKey.MemberColumns.First().Name;
+}
+
+public string GetAlias()
+{
+    var alias = string.Empty;
+    var name = SourceTable.Name;
+    var matches = Regex.Matches(name, @"[A-Z]");
+    foreach(Match match in matches){
+        alias += match.Value.ToLower();
+    }
+    
+    return alias;
+}
+
+public string GetColumns(string alias, bool update)
+{
+    var builder = new StringBuilder();
+    foreach(var column in SourceTable.Columns)
+    {
+        if (builder.Length > 0 )
+            builder.Append(",").AppendLine();
+        
+        var name = EscapeName(column.Name);
+        if (update)
+        {
+            if (column.IsPrimaryKeyMember)
+                continue;
+            
+            builder
+                .Append("           ")
+                .Append(alias)
+                .Append(".")
+                .Append(name)
+                .Append(" = ")
+                .Append(alias)
+                .Append("t.")
+                .Append(name);
+        }
+        else
+        {
+            builder
+                .Append("           ");
+            
+            if (!string.IsNullOrEmpty(alias)) 
+            {
+                builder
+                    .Append(alias)
+                    .Append("t.");
+            }
+            
+            builder.Append(name);
+        }
+    } // foreach
+    
+    return builder.ToString();
+}
+
+public string EscapeName(string name)
+{
+    return string.Format("[{0}]", name);
+}
+</script>

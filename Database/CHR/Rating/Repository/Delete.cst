@@ -1,0 +1,69 @@
+﻿<%@ Template Language="C#" TargetLanguage="C#" %>
+
+<%@ Assembly Name="SchemaExplorer" %>
+
+<%@ Import Namespace="System.Collections.Generic" %>
+<%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
+<%@ Import Namespace="SchemaExplorer" %>
+
+<%@ Property Name="SourceCommand" Type="SchemaExplorer.CommandSchema" %>
+<%@ Property Name="SourceTable" Type="SchemaExplorer.TableSchema" %>
+
+<%
+var schema = StringUtil.ToPascalCase(SourceCommand.Owner);
+var name = StringUtil.ToPascalCase(SourceCommand.Name);
+var paramName = StringUtil.ToCamelCase(name);
+var className = StringUtil.ToPascalCase(SourceTable.Name);
+%>
+
+        #region <%= name %>
+        internal const string <%= schema %>_Delete<%= className %>_SPROC = "<%= SourceCommand.FullName %>";
+
+        internal SqlParameter[] PrepareDelete<%= className %>Params()
+        {
+            SqlParameter[] arrParams;
+
+            arrParams = _sqlRepository.GetCachedParameterSet(CacheKey, <%= schema %>_Delete<%= className %>_SPROC);
+
+            if (arrParams == null)
+            {
+                arrParams = new SqlParameter[5];
+
+                arrParams[0] = new SqlParameter("@IDTable", SqlDbType.Structured);
+                arrParams[1] = new SqlParameter("@NTUser", SqlDbType.VarChar, 12);
+                arrParams[2] = new SqlParameter("@System", SqlDbType.VarChar, 200);
+                arrParams[3] = new SqlParameter("@SessionKey", SqlDbType.VarChar, 50);
+                arrParams[4] = new SqlParameter("@Token", SqlDbType.VarChar, 50);
+
+                _sqlRepository.CacheParameterSet(CacheKey, <%= schema %>_Delete<%= className %>_SPROC, arrParams);
+            }
+
+            return arrParams;
+        }
+
+        public void Delete<%= className %>(List<int> idList)
+        {
+            SqlParameter[] arrParams;
+            DateTime start;
+            DataTable idTable;
+
+            idTable = DataTableHelper.CreateIDTable(idList);
+
+            arrParams = PrepareDelete<%= className %>Params();
+
+            arrParams[0].Value = idTable;
+            arrParams[1].Value = _sessionManager.UserName;
+            arrParams[2].Value = _sessionManager.SourceSystem;
+            arrParams[3].Value = _sessionManager.SessionKey;
+            arrParams[4].Value = _sessionManager.ActionKey;
+
+            start = DateTime.Now;
+
+            _sqlRepository.ExecuteNonQuery(DatabaseConnectionString, CommandType.StoredProcedure, <%= schema %>_Delete<%= className %>_SPROC, arrParams);
+
+            //'Log Sproc Performance
+            _loggingManager.Sproc(<%= schema %>_Delete<%= className %>_SPROC, 1, start);
+
+        }
+        #endregion

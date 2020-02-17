@@ -1,0 +1,157 @@
+﻿<%@ Template Language="C#" TargetLanguage="C#" %>
+
+<%@ Assembly Name="SchemaExplorer" %>
+
+<%@ Import Namespace="System.Collections.Generic" %>
+<%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
+<%@ Import Namespace="SchemaExplorer" %>
+
+<%@ Property Name="SourceCommand" Type="SchemaExplorer.CommandSchema" %>
+<%@ Property Name="SourceTable" Type="SchemaExplorer.TableSchema" %>
+
+<%
+var schema = StringUtil.ToPascalCase(SourceCommand.Owner);
+var name = StringUtil.ToPascalCase(SourceCommand.Name);
+var paramName = StringUtil.ToCamelCase(name);
+var className = StringUtil.ToPascalCase(SourceTable.Name);
+%>
+        #region <%= name %>
+        internal const string <%= schema %>_<%= name %>_SPROC = "<%= SourceCommand.FullName %>";
+
+        internal SqlParameter[] Prepare<%= name %>Params()
+        {
+            SqlParameter[] arrParams;
+
+            arrParams = _sqlRepository.GetCachedParameterSet(CacheKey, <%= schema %>_<%= name %>_SPROC);
+
+            if (arrParams == null)
+            {
+                arrParams = new SqlParameter[5];
+
+                arrParams[0] = new SqlParameter("@<%= SourceTable.Name %>Table", SqlDbType.Structured);
+                arrParams[1] = new SqlParameter("@NTUser", SqlDbType.VarChar, 12);
+                arrParams[2] = new SqlParameter("@System", SqlDbType.VarChar, 200);
+                arrParams[3] = new SqlParameter("@SessionKey", SqlDbType.VarChar, 50);
+                arrParams[4] = new SqlParameter("@Token", SqlDbType.VarChar, 50);
+
+                _sqlRepository.CacheParameterSet(CacheKey, <%= schema %>_<%= name %>_SPROC, arrParams);
+            }
+
+            return arrParams;
+        }
+
+        private void Execute<%= name %>(DataTable dataTable)
+        {
+            SqlParameter[] arrParams;
+
+            DateTime start;
+
+            arrParams = Prepare<%= name %>Params();
+
+            arrParams[0].Value = dataTable;
+            arrParams[1].Value = _sessionManager.UserName;
+            arrParams[2].Value = _sessionManager.SourceSystem;
+            arrParams[3].Value = _sessionManager.SessionKey;
+            arrParams[4].Value = _sessionManager.ActionKey;
+
+            start = DateTime.Now;
+
+            _sqlRepository.ExecuteNonQuery(DatabaseConnectionString, CommandType.StoredProcedure, <%= schema %>_<%= name %>_SPROC, arrParams);
+
+            //'Log Sproc Performance
+            _loggingManager.Sproc(<%= schema %>_<%= name %>_SPROC, RowCount(dataTable), start);
+        }
+
+        public void <%= name %>(List<<%= className %>> list)
+        {
+            DataTable dataTable;
+
+            if (!list.HasItem())
+            {
+                return;
+            }
+
+            dataTable = Create<%= className %>DataTable(list);
+            Execute<%= name %>(dataTable);
+        }
+
+        private DataTable Create<%= className %>DataTable(List<<%= className %>> list)
+        {
+            DataTable dataTable;
+            int i = 0;
+
+            dataTable = Create<%= className %>Table();
+
+            foreach (<%= className %> dto in list)
+            {
+                i += 1;
+
+                dataTable.Rows.Add(
+                <% foreach(var column in SourceTable.Columns) { %>
+                    dto.<%= StringUtil.ToPascalCase(column.Name) %>,
+                <% } %>
+                );
+            }
+
+            //'Return <%= className %> Data Table
+            return dataTable;
+        }
+
+        private DataTable Create<%= className %>Table()
+        {
+            DataTable dataTable;
+
+            dataTable = new DataTable();
+            <% foreach(var column in SourceTable.Columns) { %>
+            dataTable.Columns.Add("<%= column.Name %>", typeof(<%= ToType(column) %>));
+            <% } %>
+
+            return dataTable;
+        }
+        #endregion
+        
+<script runat="template">
+private static readonly Dictionary<string, string> csharpTypeAlias = new Dictionary<string, string>(16)
+{
+    {"System.Int16", "short"},
+    {"System.Int32", "int"},
+    {"System.Int64", "long"},
+    {"System.String", "string"},
+    {"System.Object", "object"},
+    {"System.Boolean", "bool"},
+    {"System.Void", "void"},
+    {"System.Char", "char"},
+    {"System.Byte", "byte"},
+    {"System.UInt16", "ushort"},
+    {"System.UInt32", "uint"},
+    {"System.UInt64", "ulong"},
+    {"System.SByte", "sbyte"},
+    {"System.Single", "float"},
+    {"System.Double", "double"},
+    {"System.Decimal", "decimal"}
+};
+    
+public string ToType(ColumnSchema column)
+{
+    var type = column.SystemType.ToString();
+    return ToType(type);
+}
+
+public string ToType(string type)
+{
+    if (type == "System.Xml.XmlDocument")
+        type = "System.String";
+
+    string t;
+    if (csharpTypeAlias.TryGetValue(type, out t))
+        return t;
+
+    // drop system from namespace
+    string[] parts = type.Split('.');
+    if (parts.Length == 2 && parts[0] == "System")
+        return parts[1];
+
+    return type;
+}
+</script>
