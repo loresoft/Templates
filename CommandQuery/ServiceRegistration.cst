@@ -1,0 +1,21 @@
+﻿<%@ Template Language="C#" TargetLanguage="C#" %>
+<%@ Property Name="EntityName" Type="System.String" %>
+<%@ Property Name="Namespace" Type="System.String" %>
+
+using System;
+using System.Collections.Generic;
+using <%= Namespace %>.Models;
+using Microsoft.Extensions.DependencyInjection;
+
+// ReSharper disable once CheckNamespace
+namespace <%= Namespace %>
+{
+    public class <%= EntityName %>ServiceRegistration : DomainServiceRegistrationBase
+    {
+        public override void Register(IServiceCollection services, IDictionary<string, object> data)
+        {
+            RegisterEntityQuery<Guid, Data.Entities.<%= EntityName %>, <%= EntityName %>ReadModel>(services);
+            RegisterEntityCommand<Guid, Data.Entities.<%= EntityName %>, <%= EntityName %>ReadModel, <%= EntityName %>CreateModel, <%= EntityName %>UpdateModel>(services);
+        }
+    }
+}

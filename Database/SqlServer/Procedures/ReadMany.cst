@@ -14,59 +14,17 @@ string schema = SourceTable.Owner;
 string alias = GetAlias();
 %>
 
-/*************************************************************************
-**
-** NAME:         <%= schema %>.Read<%= SourceTable.Name %>
-**
-** CREATED:      <%= DateTime.Now.ToString("d") %>
-**
-** AUTHOR:       WELTPAU
-**
-** DESCRIPTION:  Read <%= SourceTable.Name %>
-**     
-** CHANGES:
-*************************************************************************/
 CREATE PROCEDURE [<%= schema %>].[Read<%= SourceTable.Name %>]
-    (
-     @IDTable <%= schema %>.IDType READONLY,
-     @NTUser VARCHAR(12),
-     @System VARCHAR(200),
-     @SessionKey VARCHAR(50),
-     @Token VARCHAR(50)
-    )
+(
+    @IDTable <%= schema %>.IDType READONLY
+)
 AS 
 BEGIN 
-    
-----------------------------------------------------------------------
--- Set NOCOUNT to "on" to disable the "row(s) affected" messages.
-----------------------------------------------------------------------
-    SET NOCOUNT ON
-  
-----------------------------------------------------------------------
--- Declaration
-----------------------------------------------------------------------
-        
-----------------------------------------------------------------------
--- Initialization
-----------------------------------------------------------------------
-    
----------------------------------------------------------------------
--- Validate Parameters
----------------------------------------------------------------------
 
----------------------------------------------------------------------
--- Insert, Update, Delete, Select, Search.
----------------------------------------------------------------------    
-
-    SELECT <%= GetColumns(alias) %>
+SELECT <%= GetColumns(alias) %>
     FROM [<%= schema %>].[<%= SourceTable.Name %>] AS <%= alias %> WITH (NOLOCK)
         INNER JOIN @IDTable AS i
             ON <%= alias %>.[<%= GetKeyColumnName() %>] = i.[ID]
-    
-
-----------------------------------------------------------------------
--- Error Handler
-----------------------------------------------------------------------
 
 END
 

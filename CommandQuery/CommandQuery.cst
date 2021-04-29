@@ -1,0 +1,45 @@
+﻿<%@ Template Language="C#" TargetLanguage="C#" %>
+<%@ Property Name="CommandName" Type="System.String" %>
+<%@ Property Name="CommandType" Type="CommandTypes" Default="Command" %>
+<%@ Property Name="ResponseType" Type="System.String" %>
+
+<% var commandSuffix = CommandType == CommandTypes.Query ? "Query" : "Command"; %>
+
+public class <%= CommandName %><%= commandSuffix %> : Principal<%= commandSuffix %>Base<<%= ResponseType %>>
+{
+    public <%= CommandName %><%= commandSuffix %>(IPrincipal principal) : base(principal)
+    {
+    }
+}
+
+public class <%= CommandName %>Handler : RequestHandlerBase<<%= CommandName %><%= commandSuffix %>, <%= ResponseType %>>
+{
+    public <%= CommandName %>Handler(ILoggerFactory loggerFactory) : base(loggerFactory)
+    {
+    }
+
+    protected override async Task<<%= ResponseType %>> Process(<%= CommandName %><%= commandSuffix %> request, CancellationToken cancellationToken)
+    {
+    }
+}
+
+
+services.TryAddTransient<IRequestHandler<<%= CommandName %><%= commandSuffix %>, <%= ResponseType %>>, <%= CommandName %>Handler>();
+
+
+[HttpGet("<%= CommandName %>")]
+public async Task<ActionResult<<%= ResponseType %>>> <%= CommandName %>(CancellationToken cancellationToken)
+{
+    var command = new <%= CommandName %><%= commandSuffix %>(User);
+    var result = await Mediator.Send(command, cancellationToken);
+
+    return Ok(result);
+}
+
+<script runat="template">
+public enum CommandTypes
+{
+    Command,
+    Query
+}
+</script>

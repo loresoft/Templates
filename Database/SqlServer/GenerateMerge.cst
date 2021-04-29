@@ -41,6 +41,11 @@
 <% string updateDefinition = BuildUpdate(table); %>
 <% DataTable data = table.GetTableData(); %>
 -- Table <%= tableName %> data
+<% if (IncludeIdentity) { %>
+SET IDENTITY_INSERT <%= tableName %> ON;
+GO
+
+<% } %>
 
 <% if (data.Rows.Count > 0) { %>
 MERGE INTO <%= tableName %> AS t
@@ -62,6 +67,11 @@ WHEN MATCHED THEN
     UPDATE SET <%= updateDefinition %>
 <% } // include update %>
 OUTPUT $action as [Action];
+<% if (IncludeIdentity) { %>
+
+SET IDENTITY_INSERT <%= tableName %> OFF;
+GO
+<% } %>
 
 <% } // for each table%>
 <% } // has data%>

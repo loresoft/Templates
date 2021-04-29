@@ -1,0 +1,71 @@
+﻿<%@ CodeTemplate Language="C#" TargetLanguage="SQL" Debug="True" %>
+
+<%@ Assembly Name="SchemaExplorer" %>
+<%@ Assembly Name="System.Design" %>
+<%@ Assembly Name="System.Data" %>
+
+<%@ Assembly Src="Generator.cs" %>
+
+<%@ Import Namespace="SchemaExplorer" %>
+<%@ Import Namespace="System.Data" %>
+<%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
+
+
+<%@ Property Name="Table" Type="SchemaExplorer.TableSchema" Category="1.Database" Description="Table that the stored procedure should be based on." %>
+<%@ Property Name="IncludeOutput" Type="Boolean" Category="2.Script" Optional="False" Default="True" Description="Return the output columns." %>
+<%@ Property Name="EscapeFormat" Type="String" Category="2.Script" Optional="False" Default="[{0}]" Description="String format to escape names." %>
+<%@ Property Name="ParameterFormat" Type="String" Category="2.Script" Optional="False" Default="@{0}" Description="String format to parameter names." %>
+<%@ Property Name="ProcedureNameFormat" Type="String" Category="2.Script" Optional="False" Default="{0}DeleteMany" Description="String format for stored procedure name." %>
+<%@ Property Name="IdentifierTableType" Type="String" Category="2.Script" Optional="False" Default="IdentifierTableType" Description="Identifier table type" %>
+<%@ Property Name="IncludePermisions" Type="Boolean" Category="2.Script" Optional="False" Default="True" Description="Script execute permisions" %>
+
+<% 
+var generator = new StoredProcedures.Generator();
+generator.EscapeFormat = this.EscapeFormat;
+generator.ParameterFormat = this.ParameterFormat;
+generator.ProcedureNameFormat = this.ProcedureNameFormat;
+
+string procedureName = generator.ProcedureName(Table); 
+string tableName = generator.TableName(Table); 
+string parameterDefinition = generator.ParameterKeys(Table);
+
+string outputDefinition = generator.Columns(Table, "DELETED", true, true);
+string joinDefinition = generator.WhereFromSource(Table, indent: 2);
+
+string identifierParameter = string.Format(ParameterFormat, IdentifierTableType);
+string schemaName = Table.Owner;
+%>
+
+
+CREATE PROCEDURE <%= procedureName %>
+(
+    <%= identifierParameter %> [<%= schemaName %>].[<%= IdentifierTableType %>] READONLY
+)
+AS 
+BEGIN 
+
+    MERGE INTO <%= tableName %> WITH (ROWLOCK) AS t
+    USING <%= identifierParameter %> AS s
+    ON
+    (
+        <%= joinDefinition %>
+    )
+    WHEN MATCHED THEN
+        DELETE<% if (!IncludeOutput) { %>;<% } %>
+<% if (IncludeOutput) { %>
+    OUTPUT
+        <%= outputDefinition %>;
+<% } %>
+
+END
+
+<% if (IncludePermisions) { %>
+GO
+GRANT EXECUTE
+    ON OBJECT::<%= procedureName %> TO [db_executor];
+
+GO
+GRANT VIEW DEFINITION
+    ON OBJECT::<%= procedureName %> TO [db_executor];
+<% } %>

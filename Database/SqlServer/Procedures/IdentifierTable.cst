@@ -10,37 +10,36 @@
 <%@ Import Namespace="System.Text" %>
 <%@ Import Namespace="System.Text.RegularExpressions" %>
 
-<%@ Property Name="SourceTable" Optional="False"
-    Type="SchemaExplorer.TableSchema" 
-    Description="Table to get enum from." %>
-<%@ Property Name="TypeSuffix" Optional="False" Default="Type"
-    Type="String" 
-    Description="The type name suffix" %>
+<%@ Property Name="Table" Type="SchemaExplorer.TableSchema" Category="1.Database" Description="Table that the stored procedure should be based on." %>
+<%@ Property Name="TypeName" Type="String" Category="2.Script" Description="The table type name" Optional="False" Default="Identifier" %>
+<%@ Property Name="TypeSuffix" Type="String" Category="2.Script" Description="The type name suffix" Optional="False" Default="TableType" %>
+<%@ Property Name="IncludePermisions" Type="Boolean" Category="2.Script" Optional="False" Default="True" Description="Script execute permisions" %>
 
 <% 
 int counter = 0; 
-string schema = SourceTable.Owner;
-bool hasPrimaryKey = SourceTable.HasPrimaryKey;
-string name = EscapeName(SourceTable.Owner) + "." + EscapeName(SourceTable.Name + TypeSuffix);
+string schema = Table.Owner;
+bool hasPrimaryKey = Table.HasPrimaryKey;
+string name = EscapeName(Table.Owner) + "." + EscapeName(TypeName + TypeSuffix);
 %>
 
 CREATE TYPE <%= name %> AS TABLE(
-<% foreach (ColumnSchema column in SourceTable.Columns) { %>
-    <%= EscapeName(column.Name) %><%= ColumnOptions(column) %><% if (hasPrimaryKey || (++counter) < SourceTable.Columns.Count) { Response.Write(","); } %>
+<% foreach (var column in Table.PrimaryKey.MemberColumns) { %>
+    <%= EscapeName(column.Name) %><%= ColumnOptions(column) %><% if (hasPrimaryKey || (++counter) < Table.Columns.Count) { Response.Write(","); } %>
 <% } %>
 <% if (hasPrimaryKey) { %>
-    PRIMARY KEY (<%= MemberColumns(SourceTable.PrimaryKey.MemberColumns)%>)
+    PRIMARY KEY (<%= MemberColumns(Table.PrimaryKey.MemberColumns)%>)
 <% } %>
 );
 
+<% if (IncludePermisions) { %>
 GO
 GRANT EXECUTE
-    ON TYPE::<%= name %> TO [Execute];
+    ON TYPE::<%= name %> TO [db_executor];
 
 GO
 GRANT VIEW DEFINITION
-    ON TYPE::<%= name %> TO [Execute];
-
+    ON TYPE::<%= name %> TO [db_executor];
+<% } %>
 
 <script runat="template">
 

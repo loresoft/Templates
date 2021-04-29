@@ -1,0 +1,63 @@
+﻿<%@ Template Language="C#" TargetLanguage="C#" Debug="True" Encoding="UTF-8" %>
+
+<%@ Assembly Name="System.Data" %>
+<%@ Assembly Name="SchemaExplorer" %>
+
+<%@ Import Namespace="System.Collections.Generic" %>
+<%@ Import Namespace="System.Linq" %>
+<%@ Import Namespace="SchemaExplorer" %>
+
+<%@ Property Name="SourceTable" Type="SchemaExplorer.TableSchema" Category="1.Database"  Optional="False" Description="Table to get enum from." %>
+
+<%@ Map Name="CSharpMapping" Src="System-CSharpAlias" %>
+<%@ Map Name="CSharpKeywordMapping" Src="CSharpKeywordEscape" %>
+
+public static readonly ImportDefinition <%= GetName(SourceTable) %> = ImportDefinition.Build(b => b
+    .Name("<%= StringUtil.ToSpacedWords(SourceTable.Name) %>")
+    .TargetTable("[<%= SourceTable.Owner %>].[<%= SourceTable.Name %>]")
+<% foreach (var column in SourceTable.Columns) { %>
+    .Field(f => f
+        .FieldName("<%= column.Name %>")
+        .DisplayName("<%= StringUtil.ToSpacedWords(column.Name) %>")
+        .DataType<<%= GetSystemType(column) %>>()
+<% if (column.AllowDBNull == false) { %>    
+        .Required()
+<% } %>
+<% if (column.IsPrimaryKeyMember) { %>    
+        .IsKey()
+<% } %>
+        .Expression(@"^<%= column.Name %>$")
+    )
+<% } %>    
+);
+
+<script runat="template">
+
+public string GetSystemType(ColumnSchema column)
+{
+    var type = CSharpMapping[column.SystemType.ToString()];
+    type = type.Replace("System.", "");
+    
+    if (IsNullableType(column))
+        return type + "?";
+    
+    return type;
+}
+
+public string GetName(SchemaObjectBase schemaObject)
+{
+    var name = StringUtil.ToPascalCase(schemaObject.Name);
+    return CSharpKeywordMapping[name];
+}
+
+public bool IsNullableType(ColumnSchema column)
+{
+    if (!column.AllowDBNull)
+        return false;
+    
+    if (column.SystemType.IsValueType || typeof(DateTimeOffset) == column.SystemType || typeof(DateTime) == column.SystemType)
+        return true;
+    
+    return false;
+}
+</script>
