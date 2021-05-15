@@ -1,0 +1,78 @@
+﻿<%@ CodeTemplate Language="C#" TargetLanguage="SQL" Debug="True" %>
+
+<%@ Assembly Name="SchemaExplorer" %>
+
+<%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
+
+<%@ Property Category="1.Database" Name="SourceTable" Optional="False"
+    Type="SchemaExplorer.TableSchema" 
+    Description="Table to get enum from." %>
+
+<%
+string schema = SourceTable.Owner;
+string alias = GetAlias();
+%>
+
+CREATE PROCEDURE [<%= schema %>].[Read<%= SourceTable.Name %>]
+(
+    @IDTable <%= schema %>.IDType READONLY
+)
+AS 
+BEGIN 
+
+SELECT <%= GetColumns(alias) %>
+    FROM [<%= schema %>].[<%= SourceTable.Name %>] AS <%= alias %> WITH (NOLOCK)
+        INNER JOIN @IDTable AS i
+            ON <%= alias %>.[<%= GetKeyColumnName() %>] = i.[ID]
+
+END
+
+GO
+GRANT EXECUTE
+    ON OBJECT::[<%= schema %>].[Read<%= SourceTable.Name %>] TO [Execute]
+    AS [dbo];
+
+
+GO
+GRANT VIEW DEFINITION
+    ON OBJECT::[<%= schema %>].[Read<%= SourceTable.Name %>] TO [Execute]
+    AS [dbo];
+
+<script runat="template">
+public string GetKeyColumnName()
+{
+    return SourceTable.PrimaryKey.MemberColumns.First().Name;
+}
+
+public string GetAlias()
+{
+    var alias = string.Empty;
+    var name = SourceTable.Name;
+    var matches = Regex.Matches(name, @"[A-Z]");
+    foreach(Match match in matches){
+        alias += match.Value.ToLower();
+    }
+    
+    return alias;
+}
+
+public string GetColumns(string alias)
+{
+    var builder = new StringBuilder();
+    foreach(var column in SourceTable.Columns)
+    {
+        if (builder.Length > 0 )
+            builder.Append(",").AppendLine().Append("           ");
+        
+        builder.Append(alias).Append(".").Append(EscapeName(column.Name));
+    }
+    
+    return builder.ToString();
+}
+
+public string EscapeName(string name)
+{
+    return string.Format("[{0}]", name);
+}
+</script>

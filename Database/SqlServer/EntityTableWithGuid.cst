@@ -2,6 +2,7 @@
 
 <%@ Property Name="TableName" Type="System.String" Optional="False" %>
 <%@ Property Name="SchemaName" Type="System.String" Optional="False" Default="dbo" %>
+<%@ Property Name="ForeignName" Type="System.String" Optional="True" %>
 
 CREATE TABLE [<%= SchemaName %>].[<%= TableName %>]
 (
@@ -9,8 +10,10 @@ CREATE TABLE [<%= SchemaName %>].[<%= TableName %>]
     [Name] NVARCHAR(100) NOT NULL,
     [Description] NVARCHAR(255) NULL,
 
-    [TenantId] UNIQUEIDENTIFIER NOT NULL,
+<% if (!string.IsNullOrEmpty(ForeignName)) { %>
+    [<%= ForeignName %>Id] UNIQUEIDENTIFIER NOT NULL,
 
+<% } %>
     [Created] DATETIMEOFFSET NOT NULL CONSTRAINT [DF_<%= TableName %>_Created] DEFAULT (SYSUTCDATETIME()),
     [CreatedBy] NVARCHAR(100) NULL,
     [Updated] DATETIMEOFFSET NOT NULL CONSTRAINT [DF_<%= TableName %>_Updated] DEFAULT (SYSUTCDATETIME()),
@@ -18,14 +21,14 @@ CREATE TABLE [<%= SchemaName %>].[<%= TableName %>]
     [RowVersion] ROWVERSION NOT NULL,
 
     CONSTRAINT [PK_<%= TableName %>] PRIMARY KEY NONCLUSTERED ([Id] ASC),
-    CONSTRAINT [FK_<%= TableName %>_Tenant_TenantId] FOREIGN KEY ([TenantId]) REFERENCES [<%= SchemaName %>].[Tenant]([Id]),
+    CONSTRAINT [FK_<%= TableName %>_<%= ForeignName %>_<%= ForeignName %>Id] FOREIGN KEY ([<%= ForeignName %>Id]) REFERENCES [<%= SchemaName %>].[<%= ForeignName %>]([Id]),
 )
 
 GO
-CREATE INDEX [IX_<%= TableName %>_Name]
+CREATE NONCLUSTERED INDEX [IX_<%= TableName %>_Name]
 ON [<%= SchemaName %>].[<%= TableName %>] ([Name])
 
 GO
-CREATE INDEX [IX_<%= TableName %>_TenantId]
-ON [<%= SchemaName %>].[<%= TableName %>] ([TenantId])
+CREATE NONCLUSTERED INDEX [IX_<%= TableName %>_<%= ForeignName %>Id]
+ON [<%= SchemaName %>].[<%= TableName %>] ([<%= ForeignName %>Id])
 

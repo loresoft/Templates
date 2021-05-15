@@ -1,0 +1,57 @@
+﻿<%@ Template Language="C#" TargetLanguage="SQL" Debug="True" %>
+
+<%@ Property Name="TableName" Type="System.String" Optional="False" %>
+<%@ Property Name="SchemaName" Type="System.String" Optional="False" Default="dbo" %>
+<%@ Property Name="ForeignName" Type="System.String" Optional="True" %>
+<%@ Property Name="SystemVersioning" Type="System.Boolean" Optional="False" Default="False" %>
+
+CREATE TABLE [<%= SchemaName %>].[<%= TableName %>]
+(
+    [Id] INT IDENTITY (1000, 1) NOT NULL,
+    
+    [Name] NVARCHAR(100) NOT NULL,
+    [Description] NVARCHAR(255) NULL,
+
+<% if (!string.IsNullOrEmpty(ForeignName)) { %>
+    [<%= ForeignName %>Id] INT NOT NULL,
+
+<% } %>
+    [Created] DATETIMEOFFSET NOT NULL CONSTRAINT [DF_<%= TableName %>_Created] DEFAULT (SYSUTCDATETIME()),
+    [CreatedBy] NVARCHAR(100) NULL,
+    [Updated] DATETIMEOFFSET NOT NULL CONSTRAINT [DF_<%= TableName %>_Updated] DEFAULT (SYSUTCDATETIME()),
+    [UpdatedBy] NVARCHAR(100) NULL,
+    [RowVersion] ROWVERSION NOT NULL,
+
+<% if (SystemVersioning) { %>
+    [PeriodStart] DATETIME2 GENERATED ALWAYS AS ROW START NOT NULL CONSTRAINT [DF_<%= TableName %>_PeriodStart] DEFAULT (SYSUTCDATETIME()),
+    [PeriodEnd] DATETIME2 GENERATED ALWAYS AS ROW END NOT NULL CONSTRAINT [DF_<%= TableName %>_PeriodEnd] DEFAULT ('9999-12-31 23:59:59.9999999'), 
+    PERIOD FOR SYSTEM_TIME ([PeriodStart], [PeriodEnd]),
+<% } %>
+
+    CONSTRAINT [PK_<%= TableName %>] PRIMARY KEY CLUSTERED ([Id] ASC),
+<% if (!string.IsNullOrEmpty(ForeignName)) { %>
+    CONSTRAINT [FK_<%= TableName %>_<%= ForeignName %>_<%= ForeignName %>Id] FOREIGN KEY ([<%= ForeignName %>Id]) REFERENCES [<%= SchemaName %>].[<%= ForeignName %>]([Id]),
+<% } %>
+)
+<% if (SystemVersioning) { %>
+WITH 
+(
+    SYSTEM_VERSIONING = ON 
+    (
+        HISTORY_TABLE = [History].[<%= TableName %>],
+        HISTORY_RETENTION_PERIOD = 1 YEARS,
+        DATA_CONSISTENCY_CHECK = ON
+    )
+);
+<% } %>
+
+GO
+CREATE NONCLUSTERED INDEX [IX_<%= TableName %>_Name]
+ON [<%= SchemaName %>].[<%= TableName %>] ([Name])
+
+<% if (!string.IsNullOrEmpty(ForeignName)) { %>
+GO
+CREATE NONCLUSTERED INDEX [IX_<%= TableName %>_<%= ForeignName %>Id]
+ON [<%= SchemaName %>].[<%= TableName %>] ([<%= ForeignName %>Id])
+
+<% } %>

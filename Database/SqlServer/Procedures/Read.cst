@@ -18,6 +18,8 @@
 <%@ Property Name="EscapeFormat" Type="String" Category="2.Script" Optional="False" Default="[{0}]" Description="String format to escape names." %>
 <%@ Property Name="ParameterFormat" Type="String" Category="2.Script" Optional="False" Default="@{0}" Description="String format to parameter names." %>
 <%@ Property Name="ProcedureNameFormat" Type="String" Category="2.Script" Optional="False" Default="{0}ReadByKey" Description="String format for stored procedure name." %>
+<%@ Property Name="IncludePermisions" Type="Boolean" Category="2.Script" Optional="False" Default="True" Description="Script execute permisions" %>
+
 
 <% 
 var generator = new StoredProcedures.Generator();
@@ -47,3 +49,13 @@ BEGIN
 
     SET NOCOUNT OFF;
 END
+
+<% if (IncludePermisions) { %>
+GO
+GRANT EXECUTE
+    ON OBJECT::<%= procedureName %> TO [db_executor];
+
+GO
+GRANT VIEW DEFINITION
+    ON OBJECT::<%= procedureName %> TO [db_executor];
+<% } %>

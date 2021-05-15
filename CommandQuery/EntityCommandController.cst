@@ -1,0 +1,18 @@
+﻿<%@ Template Language="C#" TargetLanguage="C#" %>
+<%@ Property Name="EntityName" Type="System.String" %>
+<%@ Property Name="Namespace" Type="System.String" %>
+
+using System;
+using MediatR;
+using MediatR.CommandQuery.Mvc;
+
+namespace <%= Namespace %>
+{
+    public class <%= EntityName %>Controller 
+        : EntityCommandControllerBase<Guid, <%= EntityName %>ReadModel, <%= EntityName %>CreateModel, <%= EntityName %>UpdateModel>
+    {
+        public <%= EntityName %>Controller(IMediator mediator) : base(mediator)
+        {
+        }
+    }
+}

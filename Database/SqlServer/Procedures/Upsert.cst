@@ -46,7 +46,9 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    MERGE INTO <%= tableName %> AS t
+    BEGIN TRANSACTION;
+
+    MERGE INTO <%= tableName %> WITH (UPDLOCK, SERIALIZABLE) AS t
     USING
     (
         SELECT
@@ -74,6 +76,8 @@ BEGIN
             <%= updateDefinition %>
     OUTPUT
         <%= outputDefinition %>;
+
+    COMMIT TRANSACTION;
 
     SET NOCOUNT OFF;
 END

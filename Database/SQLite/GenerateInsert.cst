@@ -1,110 +1,173 @@
-<%@ CodeTemplate Language="C#" TargetLanguage="SQL" Debug="False" Description="Generate SQL Insert Statements from table data." %>
+﻿<%@ CodeTemplate Language="C#" TargetLanguage="SQL" Debug="False" Description="Generate SQL Insert Statements from table data." %>
 
 <%@ Assembly Name="SchemaExplorer" %>
 <%@ Assembly Name="System.Design" %>
 <%@ Assembly Name="System.Data" %>
+<%@ Assembly Name="CodeSmith.CustomProperties" %>
 
 <%@ Import Namespace="SchemaExplorer" %>
 <%@ Import Namespace="System.Data" %>
 <%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
 
 <%@ Property Category="1.Database" Name="Tables" Optional="False"
     Type="SchemaExplorer.TableSchemaCollection" 
     Description="Database to create SQLite DDL from." %>
-<%@ Property Category="2.Script" Name="IncludeColumns" Optional="False" Default="True"
-    Type="Boolean" Description="Inclue the column names in the insert statement." %>
-<%@ Property Category="2.Script" Name="IncludeDatabase" Optional="False" Default="False"
-    Type="Boolean" Description="Inclue the database name with table name." %>
-<%@ Property Category="2.Script" Name="IncludeOwner" Optional="False" Default="False"
-    Type="Boolean" Description="Inclue table owner/schema if available." %>
-<%@ Property Category="2.Script" Name="EscapeFormat" Optional="False" Default="[{0}]"
-    Type="String" Description="String format to escape names." %>
+<%@ Property Category="1.Database" Name="IgnoreList" Optional="True"
+    Type="CodeSmith.CustomProperties.StringCollection" 
+    Description="List of Regex used to ignore columns" %>
 <%@ Property Category="2.Script" Name="DateTimeFormat" Optional="False" Default="u"
     Type="String" Description="DateTime string format. Default is Universal sortable. 2008-04-10 13:30:00Z" %>
 
 <% foreach (TableSchema table in Tables) { %>
 -- Table <%= string.Format(EscapeFormat, table.Name) %> data
 <% string columnDefinition = BuildColumns(table); %>
-<% string tableName = BuildTableName(table); %>
+<% string tableName = table.Name; %>
 <% DataTable data = table.GetTableData(); %>
+<% if (data.Rows.Count > 0) { %>
 <% foreach (DataRow row in data.Rows) { %>
-INSERT INTO <%= tableName %><%= columnDefinition %> VALUES (<%= BuildInsert(row) %>);
-<% } // for each row%>
+INSERT INTO <%= tableName %><%= columnDefinition %> 
+VALUES (<%= BuildInsert(table, row) %>);
 
+<% } // for each row%>
+<% } // if data%>
 <% } // for each table%>
 <script runat="template">
+public const string EscapeFormat = "\"{0}\"";
+
 public string BuildColumns(TableSchema table)
 {
-    if (!IncludeColumns)
-        return string.Empty;
-        
     StringBuilder s = new StringBuilder();
-    s.Append(" (");
+    bool wroteColumn = false;
+
+    s.Append("(");
+
     for(int i = 0; i < table.Columns.Count; i++)
     {
-        s.AppendFormat(EscapeFormat, table.Columns[i].Name);
-        if (i < table.Columns.Count - 1)
+        var column = table.Columns[i];
+        if (IsSkipped(column))
+            continue;
+        
+        if (wroteColumn)
             s.Append(", ");
+        
+        s.AppendFormat(EscapeFormat, column.Name);
+        wroteColumn = true;
     }
     s.Append(")");
     return s.ToString();
 }
-public string BuildInsert(DataRow row)
+
+public string BuildInsert(TableSchema table, DataRow row)
 {    
     StringBuilder s = new StringBuilder();
+    bool wroteColumn = false;
+
     for(int i = 0; i < row.ItemArray.Length; i++)
     {
+        var column = table.Columns[i];
+        if (IsSkipped(column))
+            continue;
+
+        if (wroteColumn)
+        {
+            s.Append(", ");
+        }
         object value = row[i];
         string stringValue = GetValue(row[i]);
-        if(value != null && NeedQuote(row.Table.Columns[i].DataType))
+
+        if((value != null && value != DBNull.Value) && NeedQuote(row.Table.Columns[i].DataType))
             s.AppendFormat("'{0}'", stringValue.Replace("'", "''"));
         else
             s.Append(stringValue);
-        
-        if (i < row.ItemArray.Length - 1)
-            s.Append(", ");
+
+        wroteColumn = true;
     }
     return s.ToString();
 }
+
 public bool NeedQuote(Type type)
 {
     if (type == typeof(string))
         return true;
     if (type == typeof(DateTime))
         return true;
-    
+    if (type == typeof(DateTimeOffset))
+        return true;
+    if (type == typeof(Guid))
+        return true;
+
     return false;
 }
+
 public string GetValue(object value)
 {
-    
-    if (value == null)
-        return "null";
+    if (value == null || value == DBNull.Value)
+        return "NULL";
     
     Type type = value.GetType();
     if (type == typeof(string))
         return (string)value;
     if (type == typeof(DateTime))
         return ((DateTime)value).ToString(DateTimeFormat);
+    if (type == typeof(DateTimeOffset))
+        return ((DateTimeOffset)value).ToString(DateTimeFormat);
     if (type == typeof(byte[]))
-        return Convert.ToBase64String((byte[])value);
+        return ToHex((byte[])value);
     if (type == typeof(bool))
         return Convert.ToString(Convert.ToInt32((bool)value));
     
     return Convert.ToString(value);
 }
-public string BuildTableName(TableSchema table)
+
+public string ToHex(byte[] bytes)
 {
     StringBuilder s = new StringBuilder();
-    string format = EscapeFormat + ".";
-    
-    if (IncludeDatabase)
-        s.AppendFormat(format, table.Database.Name);
-    if (IncludeOwner && !string.IsNullOrEmpty(table.Owner))
-        s.AppendFormat(format, table.Owner);
-    
-    s.AppendFormat(EscapeFormat, table.Name);
+    s.Append("0x");
+    for (int i = 0; i < bytes.Length; i++)
+        s.Append(bytes[i].ToString("x2").ToUpperInvariant());
+
     return s.ToString();
+}
+
+private bool IsSkipped(DataObjectBase column)
+{
+    if (IgnoreList != null)
+        foreach(string expression in IgnoreList)
+            if (Regex.IsMatch(column.Name, expression))
+                return true;
+
+    return false;
+}
+
+private bool IsIdentity(DataObjectBase column)
+{
+    string temp;
+    bool isIdentity = false;
+    try
+    {
+        if (column.ExtendedProperties.Contains(ExtendedPropertyNames.IsIdentity))
+        {
+            temp = column.ExtendedProperties[ExtendedPropertyNames.IsIdentity].Value.ToString();
+            bool.TryParse(temp, out isIdentity);
+        }
+    }
+    catch (Exception ex)
+    {
+        Debug.WriteLine("Error: " + ex.Message);
+    }
+
+    return isIdentity;
+}
+
+private bool IsRowVersion(DataObjectBase column)
+{
+    bool isTimeStamp = column.NativeType.Equals(
+        "timestamp", StringComparison.OrdinalIgnoreCase);
+    bool isRowVersion = column.NativeType.Equals(
+        "rowversion", StringComparison.OrdinalIgnoreCase);
+
+    return (isTimeStamp || isRowVersion);
 }
 
 </script>

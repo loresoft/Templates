@@ -1,0 +1,9 @@
+﻿<%@ Template Language="C#" TargetLanguage="C#" %>
+<%@ Assembly Name="CodeSmith.CustomProperties" %>
+<%@ Property Name="Items"Type="CodeSmith.CustomProperties.StringCollection" %>
+
+<% foreach(var item in Items) { %>
+    <% var parts = item.Split(':'); %>
+    <% var name = parts[0]; %>
+    { field: '<%= name %>', title: '<%= name %>', width: 190 },
+<% } %>

@@ -1,0 +1,152 @@
+﻿<%@ CodeTemplate Language="C#" TargetLanguage="SQL" Debug="True" %>
+
+<%@ Assembly Name="SchemaExplorer" %>
+<%@ Assembly Name="System.Design" %>
+<%@ Assembly Name="System.Data" %>
+
+<%@ Import Namespace="SchemaExplorer" %>
+<%@ Import Namespace="System.Data" %>
+<%@ Import Namespace="System.Linq" %>
+<%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
+
+<%@ Property Name="Table" Type="SchemaExplorer.TableSchema" Category="1.Database" Description="Table that the stored procedure should be based on." %>
+<%@ Property Name="TypeSuffix" Type="String" Category="2.Script" Description="The type name suffix" Optional="False" Default="TableType" %>
+<%@ Property Name="IncludePermisions" Type="Boolean" Category="2.Script" Optional="False" Default="True" Description="Script execute permisions" %>
+
+<% 
+int counter = 0; 
+string schema = Table.Owner;
+bool hasPrimaryKey = Table.HasPrimaryKey;
+string name = EscapeName(Table.Owner) + "." + EscapeName(Table.Name + TypeSuffix);
+%>
+
+CREATE TYPE <%= name %> AS TABLE(
+<% foreach (ColumnSchema column in Table.Columns) { %>
+    <%= EscapeName(column.Name) %><%= ColumnOptions(column) %><% if (hasPrimaryKey || (++counter) < Table.Columns.Count) { Response.Write(","); } %>
+<% } %>
+<% if (hasPrimaryKey) { %>
+    PRIMARY KEY (<%= MemberColumns(Table.PrimaryKey.MemberColumns)%>)
+<% } %>
+);
+
+<% if (IncludePermisions) { %>
+GO
+GRANT EXECUTE
+    ON TYPE::<%= name %> TO [db_executor];
+
+GO
+GRANT VIEW DEFINITION
+    ON TYPE::<%= name %> TO [db_executor];
+<% } %>
+
+<script runat="template">
+
+public string MemberColumns(MemberColumnSchemaCollection columns)
+{
+    StringBuilder s = new StringBuilder();
+    for(int i = 0; i < columns.Count; i++)
+    {
+        MemberColumnSchema c = columns[i];
+        string name = EscapeName(c.Name);
+        s.Append(name);
+        if (i < columns.Count - 1)
+            s.Append(", ");
+    }
+    return s.ToString();
+}
+
+public string ColumnOptions(ColumnSchema column)
+{
+    var s = new StringBuilder();
+
+    var nativeType = GetType(column);
+    s.Append(" " + nativeType);
+    
+    if (column.AllowDBNull)
+        s.Append(" NULL");
+    else
+        s.Append(" NOT NULL");
+    
+    return s.ToString();
+}
+
+public string SchemaName(TableSchema schemaObject)
+{
+    string name = "";
+    if (!string.IsNullOrEmpty(schemaObject.Owner))
+        name = EscapeName(schemaObject.Owner) + ".";
+    
+    name += EscapeName(schemaObject.Name);
+    return name;
+}
+
+public string EscapeName(string name)
+{
+    return string.Format("[{0}]", name);
+}
+
+public string GetType(ColumnSchema column)
+{
+    string size;
+
+    switch (column.DataType)
+    {
+        case DbType.AnsiString:
+            size = column.Size == -1 ? "MAX" : column.Size.ToString();
+            return $"varchar({size})";
+        case DbType.AnsiStringFixedLength:
+            return $"char({column.Size})";
+        case DbType.Binary:
+            if (column.NativeType.Equals("timestamp", StringComparison.OrdinalIgnoreCase)
+                || column.NativeType.Equals("rowversion", StringComparison.OrdinalIgnoreCase))
+                return "rowversion";
+
+            size = column.Size == -1 ? "MAX" : column.Size.ToString();
+            return $"varbinary({size})";
+        case DbType.Boolean:
+            return "bit";
+        case DbType.Byte:
+            return "tinyint";
+        case DbType.Currency:
+            return $"decimal({column.Precision},{column.Scale})";
+        case DbType.Date:
+            return "date";
+        case DbType.DateTime:
+            return "datetime";
+        case DbType.DateTime2:
+            return "datetime2";
+        case DbType.DateTimeOffset:
+            return "datetimeoffset";
+        case DbType.Decimal:
+            return $"decimal({column.Precision},{column.Scale})";
+        case DbType.Double:
+            return "float";
+        case DbType.Guid:
+            return "uniqueidentifier";
+        case DbType.Int16:
+            return "smallint";
+        case DbType.Int32:
+            return "int";
+        case DbType.Int64:
+            return "bigint";
+        case DbType.SByte:
+            return "tinyint";
+        case DbType.Single:
+            return "real";
+        case DbType.String:
+            size = column.Size == -1 ? "MAX" : column.Size.ToString();
+            return $"nvarchar({size})";
+        case DbType.StringFixedLength:
+            size = column.Size == -1 ? "MAX" : column.Size.ToString();
+            return $"nchar({size})";
+        case DbType.Time:
+            return "time";
+        case DbType.Xml:
+            return "xml";
+    }
+
+    return column.NativeType;
+}
+
+</script>

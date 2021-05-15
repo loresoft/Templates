@@ -1,0 +1,49 @@
+﻿<%@ CodeTemplate Language="C#" TargetLanguage="SQL" Debug="True" 
+    Description="Create DDL Script from source database." %>
+
+
+<%@ Assembly Name="SchemaExplorer" %>
+<%@ Assembly Name="System.Design" %>
+<%@ Assembly Name="System.Data" %>
+
+<%@ Import Namespace="SchemaExplorer" %>
+<%@ Import Namespace="System.Data" %>
+<%@ Import Namespace="System.Linq" %>
+<%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
+
+<%@ Property Name="SourceDatabase" Type="SchemaExplorer.DatabaseSchema" Optional="False" Category="1.Database" Description="Database to create DDL from." %>
+<%@ Property Name="IgnoreColumns" Type="System.Collections.Generic.List<string>" Category="2.Script" Optional="True" Description="List of Regex used to ignore columns" %>
+
+<% foreach (TableSchema table in SourceDatabase.Tables) { %>
+<% if (table.Owner == "Bristol") { %>
+Table <%= table.Name %> {
+<% foreach (ColumnSchema column in table.Columns) { %>
+    <% if (!IsIgnored(column.Name)) { %>
+    <%= column.Name %> <%= column.NativeType %><% if (column.IsPrimaryKeyMember) Response.Write(" [pk]"); %>
+    <% } %>
+<% } %>
+}
+
+<% } %>
+<% } // for each table%>
+
+<% foreach (TableSchema table in SourceDatabase.Tables) { %>
+<% foreach (TableKeySchema key in table.ForeignKeys) { %>
+Ref: <%= key.ForeignKeyTable.Name %>.<%= key.ForeignKeyMemberColumns.First().Name %> > <%= key.PrimaryKeyTable.Name %>.<%= key.PrimaryKeyMemberColumns.First().Name %>
+
+<% } // for each foreign key%>
+<% } // for each table%>
+
+
+
+
+<script runat="template">
+public bool IsIgnored(string name)
+{
+    if (IgnoreColumns == null || IgnoreColumns.Count == 0)
+        return false;
+    
+    return IgnoreColumns.Contains(name);
+}
+</script>

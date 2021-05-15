@@ -1,0 +1,47 @@
+﻿<%@ Template Language="C#" TargetLanguage="C#" %>
+
+<%@ Assembly Name="SchemaExplorer" %>
+
+<%@ Import Namespace="System.Collections.Generic" %>
+<%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
+<%@ Import Namespace="SchemaExplorer" %>
+
+<%@ Property Name="SourceCommand" Type="SchemaExplorer.CommandSchema" %>
+<%@ Property Name="SourceTable" Type="SchemaExplorer.TableSchema" %>
+
+<%
+var schema = StringUtil.ToPascalCase(SourceCommand.Owner);
+var name = StringUtil.ToPascalCase(SourceCommand.Name);
+var paramName = StringUtil.ToCamelCase(name);
+var className = StringUtil.ToPascalCase(SourceTable.Name);
+%>
+
+
+        [TestMethod]
+        public void <%= name %>()
+        {
+            List<<%= className %>> input;
+            Fixture fixture;
+
+            fixture = UnitTestHelper.MakeFixture();
+
+            input = fixture.CreateListOf<<%= className %>>();
+
+            _sqlRepository
+                .Setup(s => s.GetCachedParameterSet(It.IsAny<string>(), "<%= SourceCommand.FullName %>"))
+                .Returns<SqlParameter[]>(null);
+            
+            _repository.<%= name %>(input);
+
+            _sqlRepository.Verify(
+                m => m.ExecuteNonQuery(
+                    It.IsAny<string>(),
+                    CommandType.StoredProcedure,
+                    "<%= SourceCommand.FullName %>",
+                    It.IsAny<SqlParameter[]>()
+                ),
+                Times.Exactly(1)
+            );
+        }
+

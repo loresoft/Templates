@@ -1,0 +1,94 @@
+﻿<%@ Template Language="C#" TargetLanguage="C#" %>
+
+<%@ Assembly Name="SchemaExplorer" %>
+
+<%@ Import Namespace="System.Collections.Generic" %>
+<%@ Import Namespace="System.Text" %>
+<%@ Import Namespace="System.Text.RegularExpressions" %>
+<%@ Import Namespace="SchemaExplorer" %>
+
+<%@ Property Name="SourceCommand" Type="SchemaExplorer.CommandSchema" %>
+<%@ Property Name="SourceTable" Type="SchemaExplorer.TableSchema" %>
+
+<%
+var schema = StringUtil.ToPascalCase(SourceCommand.Owner);
+var name = StringUtil.ToPascalCase(SourceCommand.Name);
+var paramName = StringUtil.ToCamelCase(name);
+var className = StringUtil.ToPascalCase(SourceTable.Name);
+var keyNumber = new Random(1);
+var dataNumber = new Random(1);
+var readNumber = new Random(1);
+%>
+
+        [TestMethod]
+        public void <%= name %>()
+        {
+            List<int> idList;
+            List<<%= className %>> response;
+
+            _dataReader
+                .SetupSequence(r => r.Read())
+                .Returns(true)
+                .Returns(true);
+
+            <% foreach(var column in SourceTable.Columns) { %>
+            _sqlReader
+                .Setup(s => s.GetInt32(It.IsAny<IDataReader>(), "<%= column.Name %>"))
+                .Returns(<%= dataNumber.Next(999) %>);
+            <% } %>
+
+            idList = new List<int>();
+            idList.Add(<%= keyNumber.Next(999) %>);
+
+            response = _repository.<%= name %>(idList);
+
+            response.Should().NotBeNullOrEmpty();
+            <% foreach(var column in SourceTable.Columns) { %>
+            response[0].<%= StringUtil.ToPascalCase(column.Name) %>.Should().Be(<%= readNumber.Next(999) %>);
+            <% } %>
+        }
+
+<script runat="template">
+private static readonly Dictionary<string, string> csharpTypeAlias = new Dictionary<string, string>(16)
+{
+    {"System.Int16", "short"},
+    {"System.Int32", "int"},
+    {"System.Int64", "long"},
+    {"System.String", "string"},
+    {"System.Object", "object"},
+    {"System.Boolean", "bool"},
+    {"System.Void", "void"},
+    {"System.Char", "char"},
+    {"System.Byte", "byte"},
+    {"System.UInt16", "ushort"},
+    {"System.UInt32", "uint"},
+    {"System.UInt64", "ulong"},
+    {"System.SByte", "sbyte"},
+    {"System.Single", "float"},
+    {"System.Double", "double"},
+    {"System.Decimal", "decimal"}
+};
+    
+public string ToType(ColumnSchema column)
+{
+    var type = column.SystemType.ToString();
+    return ToType(type);
+}
+
+public string ToType(string type)
+{
+    if (type == "System.Xml.XmlDocument")
+        type = "System.String";
+
+    string t;
+    if (csharpTypeAlias.TryGetValue(type, out t))
+        return t;
+
+    // drop system from namespace
+    string[] parts = type.Split('.');
+    if (parts.Length == 2 && parts[0] == "System")
+        return parts[1];
+
+    return type;
+}
+</script>

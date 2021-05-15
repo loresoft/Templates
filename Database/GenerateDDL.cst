@@ -257,8 +257,62 @@ public string GetSqliteType(ColumnSchema column)
     if (isPrimary && isIdentity)
         return "integer NOT NULL PRIMARY KEY AUTOINCREMENT";
 
-    return GetSqlServerType(column);
-}
+    string size;
+
+    switch (column.DataType)
+    {
+        case DbType.AnsiString:
+            return column.Size == -1 ? "text" : $"varchar({column.Size})";
+        case DbType.AnsiStringFixedLength:
+            return column.Size == -1 ? "text" : $"char({column.Size})";
+        case DbType.Binary:
+            if (column.NativeType.Equals("timestamp", StringComparison.OrdinalIgnoreCase)
+                || column.NativeType.Equals("rowversion", StringComparison.OrdinalIgnoreCase))
+                return "rowversion";
+
+            size = column.Size == -1 ? "MAX" : column.Size.ToString();
+            return $"varbinary({size})";
+        case DbType.Boolean:
+            return "bit";
+        case DbType.Byte:
+            return "tinyint";
+        case DbType.Currency:
+            return $"decimal({column.Precision},{column.Scale})";
+        case DbType.Date:
+            return "date";
+        case DbType.DateTime:
+            return "datetime";
+        case DbType.DateTime2:
+            return "datetime2";
+        case DbType.DateTimeOffset:
+            return "datetimeoffset";
+        case DbType.Decimal:
+            return $"decimal({column.Precision},{column.Scale})";
+        case DbType.Double:
+            return "float";
+        case DbType.Guid:
+            return "uniqueidentifier";
+        case DbType.Int16:
+            return "smallint";
+        case DbType.Int32:
+            return "int";
+        case DbType.Int64:
+            return "bigint";
+        case DbType.SByte:
+            return "tinyint";
+        case DbType.Single:
+            return "real";
+        case DbType.String:
+            return column.Size == -1 ? "text" : $"nvarchar({column.Size})";
+        case DbType.StringFixedLength:
+            return column.Size == -1 ? "text" : $"nchar({column.Size})";
+        case DbType.Time:
+            return "time";
+        case DbType.Xml:
+            return "xml";
+    }
+
+    return column.NativeType;}
 
 public string GetSqlServerType(ColumnSchema column)
 {
@@ -310,10 +364,10 @@ public string GetSqlServerType(ColumnSchema column)
             return "real";
         case DbType.String:
             size = column.Size == -1 ? "MAX" : column.Size.ToString();
-            return "nvarchar";
+            return $"nvarchar({size})";
         case DbType.StringFixedLength:
             size = column.Size == -1 ? "MAX" : column.Size.ToString();
-            return "nchar";
+            return $"nchar({size})";
         case DbType.Time:
             return "time";
         case DbType.Xml:

@@ -1,0 +1,21 @@
+﻿<%@ Template Language="C#" TargetLanguage="C#" %>
+<%@ Property Name="EntityName" Type="System.String" %>
+<%@ Property Name="Namespace" Type="System.String" %>
+<%@ Property Name="KeyType" Type="System.String" Default="Guid" %>
+
+using System;
+using System.Collections.Generic;
+using System.Security.Principal;
+using MediatR.CommandQuery.Queries;
+
+// ReSharper disable once CheckNamespace
+namespace <%= Namespace %>
+{
+    public class <%= EntityName %>AuditQuery : EntityIdentifierQuery<<%= KeyType %>, IReadOnlyCollection<AuditRecord<<%= KeyType %>>>>
+    {
+        public <%= EntityName %>AuditQuery(IPrincipal principal, <%= KeyType %> id) : base(principal, id)
+        {
+
+        }
+    }
+}
