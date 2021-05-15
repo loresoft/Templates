@@ -1,0 +1,18 @@
+﻿<%@ Template Language="C#" TargetLanguage="SQL" Debug="True" %>
+
+<%@ Property Name="TableName" Type="System.String" Optional="False" Default="Datasweep" %>
+<%@ Property Name="SchemaName" Type="System.String" Optional="False" Default="dbo" %>
+
+<% var id = Guid.NewGuid().ToString(); %>
+
+-- Data Sweep added <%= DateTime.Now.ToString() %>
+IF NOT EXISTS (SELECT [Id] FROM [<%= SchemaName %>].[<%= TableName %>] WHERE [Id] = '<%= id %>')
+BEGIN
+    PRINT 'Performing Data Sweep: <%= id %>'
+
+    -- Data Sweep Here
+
+    -- Mark Complete
+    INSERT [<%= SchemaName %>].[<%= TableName %>] ([Id])
+    VALUES ('<%= id %>')
+END

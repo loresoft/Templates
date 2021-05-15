@@ -9,7 +9,7 @@ CREATE TABLE [<%= SchemaName %>].[<%= TableName %>]
     [Name] NVARCHAR(100) NOT NULL,
     [Description] NVARCHAR(255) NULL,
 
-    [OrganizationId] UNIQUEIDENTIFIER NOT NULL,
+    [TenantId] UNIQUEIDENTIFIER NOT NULL,
 
     [Created] DATETIMEOFFSET NOT NULL CONSTRAINT [DF_<%= TableName %>_Created] DEFAULT (SYSUTCDATETIME()),
     [CreatedBy] NVARCHAR(100) NULL,
@@ -18,7 +18,7 @@ CREATE TABLE [<%= SchemaName %>].[<%= TableName %>]
     [RowVersion] ROWVERSION NOT NULL,
 
     CONSTRAINT [PK_<%= TableName %>] PRIMARY KEY NONCLUSTERED ([Id] ASC),
-    CONSTRAINT [FK_<%= TableName %>_Organization_OrganizationId] FOREIGN KEY ([OrganizationId]) REFERENCES [Organization]([Id]),
+    CONSTRAINT [FK_<%= TableName %>_Tenant_TenantId] FOREIGN KEY ([TenantId]) REFERENCES [<%= SchemaName %>].[Tenant]([Id]),
 )
 
 GO
@@ -26,6 +26,6 @@ CREATE INDEX [IX_<%= TableName %>_Name]
 ON [<%= SchemaName %>].[<%= TableName %>] ([Name])
 
 GO
-CREATE INDEX [IX_<%= TableName %>_OrganizationId]
-ON [<%= SchemaName %>].[<%= TableName %>] ([OrganizationId])
+CREATE INDEX [IX_<%= TableName %>_TenantId]
+ON [<%= SchemaName %>].[<%= TableName %>] ([TenantId])
 
