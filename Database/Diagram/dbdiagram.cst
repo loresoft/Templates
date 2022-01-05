@@ -16,7 +16,7 @@
 <%@ Property Name="IgnoreColumns" Type="System.Collections.Generic.List<string>" Category="2.Script" Optional="True" Description="List of Regex used to ignore columns" %>
 
 <% foreach (TableSchema table in SourceDatabase.Tables) { %>
-<% if (table.Owner == "Bristol") { %>
+<% if (table.Owner != "History") { %>
 Table <%= table.Name %> {
 <% foreach (ColumnSchema column in table.Columns) { %>
     <% if (!IsIgnored(column.Name)) { %>
@@ -29,10 +29,12 @@ Table <%= table.Name %> {
 <% } // for each table%>
 
 <% foreach (TableSchema table in SourceDatabase.Tables) { %>
+<% if (table.Owner != "History") { %>
 <% foreach (TableKeySchema key in table.ForeignKeys) { %>
 Ref: <%= key.ForeignKeyTable.Name %>.<%= key.ForeignKeyMemberColumns.First().Name %> > <%= key.PrimaryKeyTable.Name %>.<%= key.PrimaryKeyMemberColumns.First().Name %>
 
 <% } // for each foreign key%>
+<% } %>
 <% } // for each table%>
 
 

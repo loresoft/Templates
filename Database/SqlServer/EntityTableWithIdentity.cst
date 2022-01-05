@@ -32,14 +32,13 @@ CREATE TABLE [<%= SchemaName %>].[<%= TableName %>]
 <% if (!string.IsNullOrEmpty(ForeignName)) { %>
     CONSTRAINT [FK_<%= TableName %>_<%= ForeignName %>_<%= ForeignName %>Id] FOREIGN KEY ([<%= ForeignName %>Id]) REFERENCES [<%= SchemaName %>].[<%= ForeignName %>]([Id]),
 <% } %>
-)
+)<% if (!SystemVersioning) { %>;<% } %>
 <% if (SystemVersioning) { %>
 WITH 
 (
     SYSTEM_VERSIONING = ON 
     (
         HISTORY_TABLE = [History].[<%= TableName %>],
-        HISTORY_RETENTION_PERIOD = 1 YEARS,
         DATA_CONSISTENCY_CHECK = ON
     )
 );
@@ -47,11 +46,11 @@ WITH
 
 GO
 CREATE NONCLUSTERED INDEX [IX_<%= TableName %>_Name]
-ON [<%= SchemaName %>].[<%= TableName %>] ([Name])
+ON [<%= SchemaName %>].[<%= TableName %>] ([Name]);
 
 <% if (!string.IsNullOrEmpty(ForeignName)) { %>
 GO
 CREATE NONCLUSTERED INDEX [IX_<%= TableName %>_<%= ForeignName %>Id]
-ON [<%= SchemaName %>].[<%= TableName %>] ([<%= ForeignName %>Id])
+ON [<%= SchemaName %>].[<%= TableName %>] ([<%= ForeignName %>Id]);
 
 <% } %>

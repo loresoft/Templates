@@ -1,0 +1,20 @@
+﻿<%@ CodeTemplate Language="C#" TargetLanguage="SQL" Debug="True" Description="Generate Insert Stored Procedure." %>
+
+<%@ Property Name="Names" Type="System.Collections.Generic.List<string>" %>
+
+<% foreach (var name in Names) { %>
+
+-- table <%= name %>
+ALTER TABLE [dbo].[<%= name %>] SET (SYSTEM_VERSIONING = OFF);
+GO
+
+ALTER SCHEMA [History] TRANSFER [dbo].[<%= name %>History];
+GO
+
+EXEC sp_rename 'History.<%= name %>History', '<%= name %>';  
+GO
+
+ALTER TABLE [dbo].[<%= name %>] SET (SYSTEM_VERSIONING = ON (HISTORY_TABLE=[History].[<%= name %>], DATA_CONSISTENCY_CHECK=ON));
+GO
+
+<% } %>
