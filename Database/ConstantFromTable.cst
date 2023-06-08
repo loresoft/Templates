@@ -48,40 +48,43 @@
     Description="The namespace to use for the entity class file."%>
 
 <%@ Property Category="3.Project" Name="ClassNamespace"
-    Type="System.String" Default="" Optional="False"
+    Type="System.String" Default="" Optional="True"
     Description="The namespace to use for the entity class file."%>
+    
+<%@ Map Name="CSharpMapping" Src="System-CSharpAlias" %>
 
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Text;
 
-namespace <%= this.ClassNamespace %>
-{
+<% if (!string.IsNullOrEmpty(this.ClassNamespace)) { %>
+namespace <%= this.ClassNamespace %>;
+<% } %>
 <% 
 string className = string.IsNullOrWhiteSpace(ClassName) 
-    ? StringUtil.ToPascalCase(SourceTable.Name)
+    ? StringUtil.ToPascalCase(SourceTable.Name) + "Constants"
     : ClassName;
     
 var mapping = GetMapping();
 var count = mapping.Count;
 %>
-    public <% if (AsEnum) { %>enum <% } else { %>static class <% } %><%= className %>
-    {
-    <% foreach (var map in mapping) { %>
-        ///<summary><%= map.Description ?? map.Name %></summary>
-    <% if (map.Type == typeof(Guid)) { %>
-        public static readonly <%= map.Type.FullName %> <%= map.Name %> = new Guid("<%= map.Value %>");
-    <% } else if (AsEnum) { %>
-        <%= map.Name %> = <%= map.Value %>,
-    <% } else if (NeedQuote(map.Type)) { %>
-        public const <%= map.Type.FullName %> <%= map.Name %> = "<%= map.Value %>";
-    <% } else { %>
-        public const <%= map.Type.FullName %> <%= map.Name %> = <%= map.Value %>;
-    <% } // if guid %>
-    <% } // for each row %>
-    }
+public <% if (AsEnum) { %>enum <% } else { %>static class <% } %><%= className %>
+{
+<% foreach (var map in mapping) { %>
+    ///<summary><%= map.Description ?? map.Name %></summary>
+<% if (map.Type == typeof(Guid)) { %>
+    public static readonly <%= map.Type.FullName %> <%= map.Name %> = new Guid("<%= map.Value %>");
+<% } else if (AsEnum) { %>
+    <%= map.Name %> = <%= map.Value %>,
+<% } else if (NeedQuote(map.Type)) { %>
+    public const <%= GetSystemType(map.Type) %> <%= map.Name %> = "<%= map.Value %>";
+<% } else { %>
+    public const <%= GetSystemType(map.Type) %> <%= map.Name %> = <%= map.Value %>;
+<% } // if guid %>
+<% } // for each row %>
 }
+
 
 <script runat="template">
 public List<MappedField> GetMapping()
@@ -231,6 +234,13 @@ public string GetDescriptionColumn()
     return MatchColumn(columns, DescriptionColumn.ToArray());
 }
 
+public string GetSystemType(Type systemType)
+{
+    var type = CSharpMapping[systemType.ToString()];
+    type = type.Replace("System.", "");
+        
+    return type;
+}
 public string MatchColumn(List<string> columns, string[] matchExpressions)
 {
     foreach(string match in matchExpressions)

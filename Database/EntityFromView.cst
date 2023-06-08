@@ -1,0 +1,86 @@
+﻿<%@ Template Language="C#" TargetLanguage="C#" Debug="True" Encoding="UTF-8" %>
+
+<%@ Assembly Name="System.Data" %>
+<%@ Assembly Name="SchemaExplorer" %>
+
+<%@ Import Namespace="System.Collections.Generic" %>
+<%@ Import Namespace="System.Linq" %>
+<%@ Import Namespace="SchemaExplorer" %>
+
+<%@ Property Name="SourceTable" Type="SchemaExplorer.ViewSchema" Category="1.Database"  Optional="False" Description="Table to get enum from." %>
+<%@ Property Name="EntityNamespace" Type="System.String" Category="2.Entity" Optional="False" Default="Entity.Model" Description="Class Namespace" %>
+<%@ Property Name="IncludeReader" Type="System.Boolean" Category="2.Entity" Optional="False" Default="False" Description="Include data reader methods" %>
+<%@ Map Name="DataReaderMapping" Src="DbType-DataReaderMethod" %>
+<%@ Map Name="CSharpMapping" Src="System-CSharpAlias" %>
+<%@ Map Name="CSharpKeywordMapping" Src="CSharpKeywordEscape" %>
+
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Text;
+
+namespace <%= EntityNamespace %>
+{
+    public class <%= GetName(SourceTable) %>
+    {
+<% foreach (var column in SourceTable.Columns) { %>
+        public <%= GetSystemType(column) %> <%= GetName(column) %> { get; set; }
+<% } %>
+<% if (IncludeReader) { %>
+
+        public void Read(IDataRecord record)
+        {
+<% foreach (var column in SourceTable.Columns) { %>
+            <%= GetName(column) %> = record.<%= GetReaderMethod(column) %>("<%= column.Name %>");
+<% } %>
+        }
+
+        public static <%= GetName(SourceTable) %> Create(IDataRecord record)
+        {
+            var v = new <%= GetName(SourceTable) %>();
+            v.Read(record);
+
+            return v;
+        }
+<% } %>
+    }
+}
+<script runat="template">
+public string GetReaderMethod(ViewColumnSchema column)
+{
+    var method = DataReaderMapping[column.DataType.ToString()];
+    
+    if (IsNullableType(column))
+        return method + "Null";
+    
+    return method;
+}
+
+public string GetSystemType(ViewColumnSchema column)
+{
+    var type = CSharpMapping[column.SystemType.ToString()];
+    type = type.Replace("System.", "");
+    
+    if (IsNullableType(column))
+        return type + "?";
+    
+    return type;
+}
+
+public string GetName(SchemaObjectBase schemaObject)
+{
+    var name = StringUtil.ToPascalCase(schemaObject.Name);
+    return CSharpKeywordMapping[name];
+}
+
+public bool IsNullableType(ViewColumnSchema column)
+{
+    if (!column.AllowDBNull)
+        return false;
+    
+    if (column.SystemType.IsValueType || typeof(DateTimeOffset) == column.SystemType || typeof(DateTime) == column.SystemType)
+        return true;
+    
+    return false;
+}
+</script>

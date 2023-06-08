@@ -40,7 +40,7 @@
 <% string sourceDefinition = BuildInsert(table, "s"); %>
 <% string updateDefinition = BuildUpdate(table); %>
 <% DataTable data = table.GetTableData(); %>
--- Table <%= tableName %> data
+/* Table <%= tableName %> data */
 <% if (IncludeIdentity) { %>
 SET IDENTITY_INSERT <%= tableName %> ON;
 GO
@@ -66,7 +66,7 @@ WHEN NOT MATCHED BY TARGET THEN
 WHEN MATCHED THEN 
     UPDATE SET <%= updateDefinition %>
 <% } // include update %>
-OUTPUT $action as [Action];
+OUTPUT $action as MergeAction;
 <% if (IncludeIdentity) { %>
 
 SET IDENTITY_INSERT <%= tableName %> OFF;
@@ -185,9 +185,13 @@ public string BuildRowValues(TableSchema table, DataTable data)
             }
             object value = row[i];
             string stringValue = GetValue(row[i]);
+            Type type = row.Table.Columns[i].DataType;
             
-            if((value != null && value != DBNull.Value) && NeedQuote(row.Table.Columns[i].DataType))
-                s.AppendFormat("'{0}'", stringValue.Replace("'", "''"));
+            if((value != null && value != DBNull.Value) && NeedQuote(type))
+                if (type == typeof(string))
+                    s.AppendFormat("N'{0}'", stringValue.Replace("'", "''"));
+                else
+                    s.AppendFormat("'{0}'", stringValue.Replace("'", "''"));
             else
                 s.Append(stringValue);
             

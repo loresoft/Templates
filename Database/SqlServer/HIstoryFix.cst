@@ -8,10 +8,10 @@
 ALTER TABLE [dbo].[<%= name %>] SET (SYSTEM_VERSIONING = OFF);
 GO
 
-ALTER SCHEMA [History] TRANSFER [dbo].[<%= name %>History];
+EXEC sp_rename 'dbo.<%= name %>.Key', 'UserProfileKey', 'COLUMN';  
 GO
 
-EXEC sp_rename 'History.<%= name %>History', '<%= name %>';  
+EXEC sp_rename 'History.<%= name %>.Key', 'UserProfileKey', 'COLUMN';  
 GO
 
 ALTER TABLE [dbo].[<%= name %>] SET (SYSTEM_VERSIONING = ON (HISTORY_TABLE=[History].[<%= name %>], DATA_CONSISTENCY_CHECK=ON));
