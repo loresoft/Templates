@@ -9,7 +9,10 @@
 
 <%@ Property Name="SourceTable" Type="SchemaExplorer.TableSchema" Category="1.Database"  Optional="False" Description="Table to get enum from." %>
 <%@ Property Name="EntityNamespace" Type="System.String" Category="2.Entity" Optional="False" Default="Entity.Model" Description="Class Namespace" %>
+<%@ Property Name="IncludeAttributes" Type="System.Boolean" Category="2.Entity" Optional="False" Default="False" Description="Include schema attributes" %>
 <%@ Property Name="IncludeReader" Type="System.Boolean" Category="2.Entity" Optional="False" Default="False" Description="Include data reader methods" %>
+<%@ Property Name="IncludeNullability" Type="System.Boolean" Category="2.Entity" Optional="False" Default="False" Description="Include nullable" %>
+
 <%@ Map Name="DataReaderMapping" Src="DbType-DataReaderMethod" %>
 <%@ Map Name="CSharpMapping" Src="System-CSharpAlias" %>
 <%@ Map Name="CSharpKeywordMapping" Src="CSharpKeywordEscape" %>
@@ -19,32 +22,43 @@ using System.Collections.Generic;
 using System.Data;
 using System.Text;
 
-namespace <%= EntityNamespace %>
+namespace <%= EntityNamespace %>;
+
+<% if (IncludeAttributes) { %>
+[Table("<%= SourceTable.Name %>", Schema = "<%= SourceTable.Owner %>")]
+<% } %>
+public class <%= GetName(SourceTable) %>
 {
-    public class <%= GetName(SourceTable) %>
-    {
 <% foreach (var column in SourceTable.Columns) { %>
-        public <%= GetSystemType(column) %> <%= GetName(column) %> { get; set; }
+<% var propertyName = GetName(column); %>
+<% var nullText = GetNullable(column); %>
+<% if (IncludeAttributes && column.IsPrimaryKeyMember) { %>
+    [Key]
+<% } %>
+<% if (IncludeAttributes && column.Name != propertyName) { %>
+    [Column("<%= column.Name %>")]
+<% } %>
+    public <%= GetSystemType(column) %> <%= propertyName %> { get; set; }<%= nullText %>
 <% } %>
 <% if (IncludeReader) { %>
 
-        public void Read(IDataRecord record)
-        {
+    public void Read(IDataRecord record)
+    {
 <% foreach (var column in SourceTable.Columns) { %>
-            <%= GetName(column) %> = record.<%= GetReaderMethod(column) %>("<%= column.Name %>");
-<% } %>
-        }
-
-        public static <%= GetName(SourceTable) %> Create(IDataRecord record)
-        {
-            var v = new <%= GetName(SourceTable) %>();
-            v.Read(record);
-
-            return v;
-        }
+        <%= GetName(column) %> = record.<%= GetReaderMethod(column) %>("<%= column.Name %>");
 <% } %>
     }
+
+    public static <%= GetName(SourceTable) %> Create(IDataRecord record)
+    {
+        var v = new <%= GetName(SourceTable) %>();
+        v.Read(record);
+        
+        return v;
+    }
+<% } %>
 }
+
 <script runat="template">
 public string GetReaderMethod(ColumnSchema column)
 {
@@ -78,9 +92,20 @@ public bool IsNullableType(ColumnSchema column)
     if (!column.AllowDBNull)
         return false;
     
-    if (column.SystemType.IsValueType || typeof(DateTimeOffset) == column.SystemType || typeof(DateTime) == column.SystemType)
+    if (column.SystemType.IsValueType || typeof(DateTimeOffset) == column.SystemType || typeof(DateTime) == column.SystemType || IncludeNullability)
         return true;
     
     return false;
+}
+
+public string GetNullable(ColumnSchema column)
+{
+    if (column.AllowDBNull == true && (column.SystemType.IsValueType || IncludeNullability))
+        return string.Empty;
+    else if (IncludeNullability && !column.SystemType.IsValueType)
+        return " = null!;";
+    else
+        return string.Empty;
+
 }
 </script>

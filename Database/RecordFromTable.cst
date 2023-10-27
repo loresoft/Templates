@@ -1,0 +1,59 @@
+﻿<%@ Template Language="C#" TargetLanguage="C#" Debug="True" Encoding="UTF-8" %>
+
+<%@ Assembly Name="System.Data" %>
+<%@ Assembly Name="SchemaExplorer" %>
+
+<%@ Import Namespace="System.Collections.Generic" %>
+<%@ Import Namespace="System.Linq" %>
+<%@ Import Namespace="SchemaExplorer" %>
+
+<%@ Property Name="SourceTable" Type="SchemaExplorer.TableSchema" Category="1.Database"  Optional="False" Description="Table to get enum from." %>
+<%@ Property Name="EntityNamespace" Type="System.String" Category="2.Entity" Optional="False" Default="Entity.Model" Description="Class Namespace" %>
+<%@ Property Name="IncludeNullability" Type="System.Boolean" Category="2.Entity" Optional="False" Default="True" Description="Include nullable" %>
+
+<%@ Map Name="DataReaderMapping" Src="DbType-DataReaderMethod" %>
+<%@ Map Name="CSharpMapping" Src="System-CSharpAlias" %>
+<%@ Map Name="CSharpKeywordMapping" Src="CSharpKeywordEscape" %>
+
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Text;
+
+namespace <%= EntityNamespace %>;
+
+public record <%= GetName(SourceTable) %> (
+<% for (var i = 0; i < SourceTable.Columns.Count; i++) { %>
+    <%= GetSystemType(SourceTable.Columns[i]) %> <%= GetName(SourceTable.Columns[i]) %><% if (i < SourceTable.Columns.Count - 1) { %>,<% } %>
+<% } %>
+);
+
+<script runat="template">
+public string GetSystemType(ColumnSchema column)
+{
+    var type = CSharpMapping[column.SystemType.ToString()];
+    type = type.Replace("System.", "");
+    
+    if (IsNullableType(column))
+        return type + "?";
+    
+    return type;
+}
+
+public string GetName(SchemaObjectBase schemaObject)
+{
+    var name = StringUtil.ToPascalCase(schemaObject.Name);
+    return CSharpKeywordMapping[name];
+}
+
+public bool IsNullableType(ColumnSchema column)
+{
+    if (!column.AllowDBNull)
+        return false;
+    
+    if (column.SystemType.IsValueType || typeof(DateTimeOffset) == column.SystemType || typeof(DateTime) == column.SystemType || IncludeNullability)
+        return true;
+    
+    return false;
+}
+</script>
