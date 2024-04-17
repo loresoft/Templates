@@ -1,0 +1,92 @@
+﻿<%@ Template Language="C#" TargetLanguage="SQL" Debug="True" %>
+
+<%@ Property Name="SchemaName" Category="1.Table" Type="System.String" Optional="False" Default="dbo" %>
+<%@ Property Name="TableName" Category="1.Table" Type="System.String" Optional="False" %>
+
+<%@ Property Name="ForeignNames" Category="2.Columns" Type="System.Collections.Generic.List<string>" Optional="True" %>
+
+<%@ Property Name="HistoryTableFormat" Category="3.Options" Type="System.String" Optional="False" Default="[History].[{0}]" %>
+<%@ Property Name="PrimaryKeyFormat" Category="3.Options" Type="System.String" Optional="True" Default="" %>
+<%@ Property Name="ForeignKeyFormat" Category="3.Options" Type="System.String" Optional="False" Default="{0}Id" %>
+<%@ Property Name="UseGuid" Category="3.Options" Type="System.Boolean" Optional="False" Default="False" %>
+
+<%@ Property Name="ChangeTracking" Category="4.Versioning" Type="System.Boolean" Optional="False" Default="False" %>
+<%@ Property Name="SystemVersioning" Category="4.Versioning" Type="System.Boolean" Optional="False" Default="False" %>
+<%@ Property Name="VerionStartName" Category="4.Versioning" Type="System.String" Optional="False" Default="PeriodStart" %>
+<%@ Property Name="VerionEndName" Category="4.Versioning" Type="System.String" Optional="False" Default="PeriodEnd" %>
+
+CREATE TABLE [<%= SchemaName %>].[<%= TableName %>]
+(
+<% if (UseGuid) { %>
+    [<%= FormatKey(PrimaryKeyFormat, TableName) %>] UNIQUEIDENTIFIER NOT NULL ROWGUIDCOL CONSTRAINT [DF_<%= TableName %>_<%= FormatKey(PrimaryKeyFormat, TableName) %>] DEFAULT (NEWSEQUENTIALID()),
+<% } else { %>
+    [<%= FormatKey(PrimaryKeyFormat, TableName) %>] INT IDENTITY (1000, 1) NOT NULL,
+<% } %>
+
+    [Name] NVARCHAR(100) NOT NULL,
+    [Description] NVARCHAR(255) NULL,
+
+<% if (ForeignNames != null) { %>
+<% foreach(var foreignName in ForeignNames) { %>
+<% if (UseGuid) { %>
+    [<%= string.Format(ForeignKeyFormat, foreignName) %>] UNIQUEIDENTIFIER NOT NULL,
+<% } else { %>
+    [<%= string.Format(ForeignKeyFormat, foreignName) %>] INT NOT NULL,
+<% } %>
+
+<% } %>
+<% } %>
+    [Created] DATETIMEOFFSET NOT NULL CONSTRAINT [DF_<%= TableName %>_Created] DEFAULT (SYSUTCDATETIME()),
+    [CreatedBy] NVARCHAR(100) NULL,
+    [Updated] DATETIMEOFFSET NOT NULL CONSTRAINT [DF_<%= TableName %>_Updated] DEFAULT (SYSUTCDATETIME()),
+    [UpdatedBy] NVARCHAR(100) NULL,
+    [RowVersion] ROWVERSION NOT NULL,
+<% if (SystemVersioning) { %>
+
+    [<%= VerionStartName %>] DATETIME2 GENERATED ALWAYS AS ROW START NOT NULL CONSTRAINT [DF_<%= TableName %>_<%= VerionStartName %>] DEFAULT (SYSUTCDATETIME()),
+    [<%= VerionEndName %>] DATETIME2 GENERATED ALWAYS AS ROW END NOT NULL CONSTRAINT [DF_<%= TableName %>_<%= VerionEndName %>] DEFAULT ('9999-12-31 23:59:59.9999999'),
+    PERIOD FOR SYSTEM_TIME ([<%= VerionStartName %>], [<%= VerionEndName %>]),
+<% } %>
+
+<% if (UseGuid) { %>
+    CONSTRAINT [PK_<%= TableName %>] PRIMARY KEY NONCLUSTERED ([<%= FormatKey(PrimaryKeyFormat, TableName) %>] ASC),
+<% } else { %>
+    CONSTRAINT [PK_<%= TableName %>] PRIMARY KEY CLUSTERED ([<%= FormatKey(PrimaryKeyFormat, TableName) %>] ASC),
+<% } %>
+<% if (ForeignNames != null) { %>
+<% foreach(var foreignName in ForeignNames) { %>
+    CONSTRAINT [FK_<%= TableName %>_<%= foreignName %>_<%= string.Format(ForeignKeyFormat, foreignName) %>] FOREIGN KEY ([<%= string.Format(ForeignKeyFormat, foreignName) %>]) REFERENCES [<%= SchemaName %>].[<%= foreignName %>] ([<%= FormatKey(PrimaryKeyFormat, foreignName) %>]),
+<% } %>
+<% } %>
+
+    INDEX [IX_<%= TableName %>_Name] NONCLUSTERED ([Name] ASC),
+<% if (ForeignNames != null) { %>
+<% foreach(var foreignName in ForeignNames) { %>
+    INDEX [IX_<%= TableName %>_<%= string.Format(ForeignKeyFormat, foreignName) %>] NONCLUSTERED ([<%= string.Format(ForeignKeyFormat, foreignName) %>] ASC),
+<% } %>
+<% } %>
+)<% if (!SystemVersioning) { %>;<% } %>
+<% if (SystemVersioning) { %>
+WITH
+(
+    SYSTEM_VERSIONING = ON
+    (
+        HISTORY_TABLE = <%= string.Format(HistoryTableFormat, TableName) %>,
+        HISTORY_RETENTION_PERIOD = 1 YEARS,
+        DATA_CONSISTENCY_CHECK = ON
+    )
+);
+<% } %>
+<% if (ChangeTracking) { %>
+
+GO
+ALTER TABLE [<%= SchemaName %>].[<%= TableName %>]
+    ENABLE CHANGE_TRACKING WITH (TRACK_COLUMNS_UPDATED = OFF);
+<% } %>
+
+<script runat="template">
+public string FormatKey(string format, params string[] values)
+{
+    return string.IsNullOrWhiteSpace(format) ? "Id" : string.Format(format, values);
+}
+</script>
