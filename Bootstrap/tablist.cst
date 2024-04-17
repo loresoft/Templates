@@ -1,0 +1,45 @@
+﻿<%@ Template Language="C#" TargetLanguage="HTML" %>
+<%@ Property Name="Name" Type="System.String" %>
+<%@ Property Name="Items" Type="System.Collections.Generic.List<string>" %>
+<%@ Property Name="Suffix" Type="System.String" Optional="True" %>
+
+<% var parentId = StringUtil.ToCamelCase(Name); %>
+<ul id="tablist-<%= parentId %><%= Suffix %>" 
+    class="nav nav-tabs" 
+    role="tablist">
+<% for(var i = 0; i < Items.Count; i++) { %>
+<% var item = Items[i]; %>
+<% var itemId = StringUtil.ToCamelCase(item); %>
+<% var itemName = $"{parentId}-{itemId}{Suffix}"; %>
+<% var isFirst = i == 0; %>
+  <li class="nav-item" 
+      role="presentation">
+    <button id="tab-link-<%= itemName %>" 
+            class="nav-link<%= (isFirst ? " active" : "") %>" 
+            data-bs-toggle="tab" 
+            data-bs-target="#tab-pane-<%= itemName %>" 
+            type="button" 
+            role="tab" 
+            aria-controls="tab-pane-<%= itemName %>" 
+            aria-selected="true">
+        <%= item %>
+    </button>
+  </li>
+<% } %>
+</ul>
+<div id="tab-content-<%= parentId %><%= Suffix %>"
+     class="tab-content">
+<% for(var i = 0; i < Items.Count; i++) { %>
+<% var item = Items[i]; %>
+<% var itemId = StringUtil.ToCamelCase(item); %>
+<% var itemName = $"{parentId}-{itemId}{Suffix}"; %>
+<% var isFirst = i == 0; %>
+  <div class="tab-pane fade<%= (isFirst ? " show active" : "") %>" 
+       id="tab-pane-<%= itemName %>" 
+       role="tabpanel" 
+       aria-labelledby="tab-link-<%= itemName %>" 
+       tabindex="0">
+    <!-- <%= item %> Tab Panel Content -->
+  </div>
+<% } %>
+</div>

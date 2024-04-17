@@ -1,0 +1,31 @@
+﻿<%@ Template Language="C#" TargetLanguage="HTML" %>
+<%@ Property Name="Name" Type="System.String" %>
+<%@ Property Name="Items" Type="System.Collections.Generic.List<string>" Optional="True" %>
+<% var parentId = StringUtil.ToCamelCase(Name); %>
+<!-- <%= Name %> Menu -->
+<li class="nav-item dropdown">
+    <a id="navbar-dropdown-<%= parentId %>"
+       class="nav-link dropdown-toggle"
+       href="#"
+       role="button" 
+       data-bs-toggle="dropdown" 
+       aria-expanded="false">
+      <%= Name %>
+    </a>
+<% if (Items != null && Items.Count > 0) { %>
+    <ul class="dropdown-menu"
+        aria-labelledby="navbar-dropdown-<%= parentId %>">
+<% foreach(var item in Items) { %>
+<% var itemId = StringUtil.ToCamelCase(item); %>
+        <li>
+            <a id="navbar-item-<%= parentId %>-<%= itemId %>-link"
+               class="dropdown-item"
+               title="<%= item %>"
+               href="/<%= parentId.ToLower() %>/<%= itemId.ToLower() %>">
+               <%= item %>
+            </a>
+        </li>
+<% } %>
+    </ul>
+<% } %>
+</li>
