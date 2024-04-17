@@ -1,24 +1,22 @@
 ﻿<%@ Template Language="C#" TargetLanguage="HTML" %>
-<%@ Property Name="FormName" Type="System.String" %>
 <%@ Property Name="InputName" Type="System.String" %>
-<%@ Property Name="ScopeName" Type="System.String" Default="viewModel." %>
+<%@ Property Name="ModelName" Type="System.String" Default="Model." %>
+<%@ Property Name="Required" Type="System.Boolean" Default="false" %>
 <%
 var placeHolder = StringUtil.ToSpacedWords(InputName);
 %>
-<!-- <%= FormName %>.<%= InputName %> -->
-<div class="form-group"
-     ng-class="{ 'has-error' : <%= FormName %>.<%= InputName %>.$invalid && (<%= FormName %>.<%= InputName %>.$touched || <%= FormName %>.$submitted) }">
-    <label for="<%= InputName %>" class="control-label">
-        <%= placeHolder %>:
-        <span class="text-danger">*</span>
+
+
+<div class="mb-3">
+    <label for="<%= InputName %>" class="form-label">
+        <%= placeHolder %>:<% if (Required) { %> <span class="text-danger">*</span> <% } %>
     </label>
-    <input type="text" name="<%= InputName %>" id="<%= InputName %>"
-           placeholder="<%= placeHolder %>"
-           class="form-control"
-           required="required"
-           ng-model="<%= ScopeName %><%= InputName %>" />
-    <div ng-messages="<%= FormName %>.<%= InputName %>.$error" 
-         ng-if="<%= FormName %>.$submitted || <%= FormName %>.<%= InputName %>.$touched">
-        <span ng-message="required" class="help-block"><%= placeHolder %> is required</span>
-    </div>
+    <InputText @bind-Value="<%= ModelName %><%= InputName %>"
+               DisplayName="<%= placeHolder %>"
+               id="<%= InputName %>"
+               name="<%= InputName %>"
+               class="form-control"
+               placeholder="<%= placeHolder %>" />
+    <ValidationMessage For="@(() => <%= ModelName %><%= InputName %>)" />
 </div>
+

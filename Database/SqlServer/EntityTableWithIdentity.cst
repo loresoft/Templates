@@ -2,7 +2,8 @@
 
 <%@ Property Name="TableName" Type="System.String" Optional="False" %>
 <%@ Property Name="SchemaName" Type="System.String" Optional="False" Default="dbo" %>
-<%@ Property Name="ForeignName" Type="System.String" Optional="True" %>
+<%@ Property Name="ForeignNames" Type="System.Collections.Generic.List<string>" Optional="True" %>
+
 <%@ Property Name="SystemVersioning" Type="System.Boolean" Optional="False" Default="False" %>
 
 CREATE TABLE [<%= SchemaName %>].[<%= TableName %>]
@@ -12,9 +13,11 @@ CREATE TABLE [<%= SchemaName %>].[<%= TableName %>]
     [Name] NVARCHAR(100) NOT NULL,
     [Description] NVARCHAR(255) NULL,
 
-<% if (!string.IsNullOrEmpty(ForeignName)) { %>
-    [<%= ForeignName %>Id] INT NOT NULL,
+<% if (ForeignNames != null) { %>
+<% foreach(var foreignName in ForeignNames) { %>
+    [<%= foreignName %>Id] INT NOT NULL,
 
+<% } %>
 <% } %>
     [Created] DATETIMEOFFSET NOT NULL CONSTRAINT [DF_<%= TableName %>_Created] DEFAULT (SYSUTCDATETIME()),
     [CreatedBy] NVARCHAR(100) NULL,
@@ -29,8 +32,10 @@ CREATE TABLE [<%= SchemaName %>].[<%= TableName %>]
 <% } %>
 
     CONSTRAINT [PK_<%= TableName %>] PRIMARY KEY CLUSTERED ([Id] ASC),
-<% if (!string.IsNullOrEmpty(ForeignName)) { %>
-    CONSTRAINT [FK_<%= TableName %>_<%= ForeignName %>_<%= ForeignName %>Id] FOREIGN KEY ([<%= ForeignName %>Id]) REFERENCES [<%= SchemaName %>].[<%= ForeignName %>]([Id]),
+<% if (ForeignNames != null) { %>
+<% foreach(var foreignName in ForeignNames) { %>
+    CONSTRAINT [FK_<%= TableName %>_<%= foreignName %>_<%= foreignName %>Id] FOREIGN KEY ([<%= foreignName %>Id]) REFERENCES [<%= SchemaName %>].[<%= foreignName %>]([Id]),
+<% } %>
 <% } %>
 )<% if (!SystemVersioning) { %>;<% } %>
 <% if (SystemVersioning) { %>
@@ -48,9 +53,11 @@ GO
 CREATE NONCLUSTERED INDEX [IX_<%= TableName %>_Name]
 ON [<%= SchemaName %>].[<%= TableName %>] ([Name]);
 
-<% if (!string.IsNullOrEmpty(ForeignName)) { %>
+<% if (ForeignNames != null) { %>
+<% foreach(var foreignName in ForeignNames) { %>
 GO
-CREATE NONCLUSTERED INDEX [IX_<%= TableName %>_<%= ForeignName %>Id]
-ON [<%= SchemaName %>].[<%= TableName %>] ([<%= ForeignName %>Id]);
+CREATE NONCLUSTERED INDEX [IX_<%= TableName %>_<%= foreignName %>Id]
+ON [<%= SchemaName %>].[<%= TableName %>] ([<%= foreignName %>Id]);
 
+<% } %>
 <% } %>
