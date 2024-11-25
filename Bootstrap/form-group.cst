@@ -11,12 +11,12 @@ var placeHolder = StringUtil.ToSpacedWords(InputName);
     <label for="<%= InputName %>" class="form-label">
         <%= placeHolder %>:<% if (Required) { %> <span class="text-danger">*</span> <% } %>
     </label>
-    <InputText @bind-Value="<%= ModelName %><%= InputName %>"
+    <InputText @bind-Value="<%= ModelName %>.<%= InputName %>"
                DisplayName="<%= placeHolder %>"
                id="<%= InputName %>"
                name="<%= InputName %>"
                class="form-control"
                placeholder="<%= placeHolder %>" />
-    <ValidationMessage For="@(() => <%= ModelName %><%= InputName %>)" />
+    <ValidationMessage For="@(() => <%= ModelName %>.<%= InputName %>)" />
 </div>
 

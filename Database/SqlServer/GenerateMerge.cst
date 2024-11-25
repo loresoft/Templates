@@ -30,8 +30,6 @@
     Type="Boolean" Description="Inclue table update statemenst." %>
 <%@ Property Category="2.Script" Name="EscapeFormat" Optional="False" Default="[{0}]"
     Type="String" Description="String format to escape names." %>
-<%@ Property Category="2.Script" Name="DateTimeFormat" Optional="False" Default="u"
-    Type="String" Description="DateTime string format. Default is Universal sortable. 2008-04-10 13:30:00Z" %>
 
 <% foreach (TableSchema table in Tables) { %>
 <% string tableName = BuildTableName(table); %>
@@ -184,7 +182,8 @@ public string BuildRowValues(TableSchema table, DataTable data)
                 AppendWrap(s, 2);
             }
             object value = row[i];
-            string stringValue = GetValue(row[i]);
+            string stringValue = GetValue(value);
+
             Type type = row.Table.Columns[i].DataType;
             
             if((value != null && value != DBNull.Value) && NeedQuote(type))
@@ -266,18 +265,42 @@ public string GetValue(object value)
 {
     if (value == null || value == DBNull.Value)
         return "NULL";
-    
-    Type type = value.GetType();
-    if (type == typeof(string))
-        return (string)value;
-    if (type == typeof(DateTime))
-        return ((DateTime)value).ToString(DateTimeFormat);
-    if (type == typeof(DateTimeOffset))
-        return ((DateTimeOffset)value).ToString(DateTimeFormat);
-    if (type == typeof(byte[]))
-        return ToHex((byte[])value);
-    if (type == typeof(bool))
-        return Convert.ToString(Convert.ToInt32((bool)value));
+
+    if (value is string)
+    {
+        string stringValue = (string)value;
+        return stringValue;
+    }
+
+    if (value is DateTime )
+    {
+        var dateTimeValue = (DateTime)value;
+        return dateTimeValue.ToString("yyyy-MM-dd HH:mm:ss.fff");
+    }
+
+    if (value is DateTimeOffset)
+    {
+        var dateTimeOffset = (DateTimeOffset)value;
+        return dateTimeOffset.ToString("yyyy-MM-dd HH:mm:ss.ffffffzzz");
+    }
+
+    if (value is byte[])
+    {
+        var byteArray = (byte[])value;
+        return ToHex(byteArray);
+    }
+
+    if (value is bool)
+    {
+        var  boolValue = (bool)value;
+        return boolValue ? "1" : "0";
+    }
+
+    if (value is TimeSpan)
+    {
+        var  timeSpanValue = (TimeSpan)value;
+        return timeSpanValue.ToString("c");
+    }
     
     return Convert.ToString(value);
 }

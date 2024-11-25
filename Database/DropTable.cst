@@ -1,0 +1,61 @@
+﻿<%@ Template Language="C#" TargetLanguage="SQL" Debug="True" Encoding="UTF-8" %>
+
+<%@ Assembly Name="System.Data" %>
+<%@ Assembly Name="SchemaExplorer" %>
+
+<%@ Import Namespace="System.Collections.Generic" %>
+<%@ Import Namespace="System.Linq" %>
+<%@ Import Namespace="SchemaExplorer" %>
+
+<%@ Property Name="SourceTable" Type="SchemaExplorer.TableSchema" Category="1.Database"  Optional="False" %>
+
+<%@ Property Name="DropTable" Type="System.Boolean" Category="2.Options" Optional="False" Default="True" %>
+<%@ Property Name="DropForeignKeys" Type="System.Boolean" Category="2.Options" Optional="False" Default="True" %>
+<%@ Property Name="DropPrimaryKey" Type="System.Boolean" Category="2.Options" Optional="False" Default="True" %>
+<%@ Property Name="DropDependencies" Type="System.Boolean" Category="2.Options" Optional="False" Default="True" %>
+<%@ Property Name="DropIndexes" Type="System.Boolean" Category="2.Options" Optional="False" Default="True" %>
+
+<% if (DropPrimaryKey) { %>
+-- Primary Key
+ALTER TABLE [<%= SourceTable.Owner %>].[<%= SourceTable.Name %>] DROP CONSTRAINT IF EXISTS [<%= SourceTable.PrimaryKey.Name %>];
+<% } // DropPrimaryKey%>
+
+<% if (DropForeignKeys) { %>
+-- Foreign Keys
+<% foreach (TableKeySchema key in SourceTable.ForeignKeys) { %>
+ALTER TABLE [<%= SourceTable.Owner %>].[<%= SourceTable.Name %>] DROP CONSTRAINT IF EXISTS [<%= key.Name %>];
+<% } // for each foreign key%>
+<% } // DropForeignKeysy%>
+
+<% if (DropIndexes) { %>
+-- Indexes
+<% foreach (IndexSchema index in SourceTable.Indexes) { %>
+<% if (!index.IsPrimaryKey || DropPrimaryKey) { %>
+DROP INDEX IF EXISTS [<%= index.Name %>] ON [<%= SourceTable.Owner %>].[<%= SourceTable.Name %>]
+<% } // IsPrimaryKey%>
+<% } // for each index%>
+<% } // DropIndexes%>
+
+<% if (DropDependencies || DropTable) { %>
+-- Dependencies
+<% foreach (TableKeySchema key in SourceTable.PrimaryKeys) { %>
+ALTER TABLE [<%= key.ForeignKeyTable.Owner %>].[<%= key.ForeignKeyTable.Name %>] DROP CONSTRAINT IF EXISTS [<%= key.Name %>];
+<% } // for each primary key%>
+<% } // DropDependencies%>
+
+<% if (DropTable) { %>
+-- Table
+DROP TABLE IF EXISTS [<%= SourceTable.Owner %>].[<%= SourceTable.Name %>]
+<% } // DropTable%>
+
+<script runat="template">
+public string SchemaName(SchemaObjectBase schemaObject)
+{
+    return schemaObject.FullName;
+}
+
+public string EscapeName(string name)
+{
+    return string.Format("[{0}]", name);    
+}
+</script>

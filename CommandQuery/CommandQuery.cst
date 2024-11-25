@@ -5,9 +5,9 @@
 
 <% var commandSuffix = CommandType == CommandTypes.Query ? "Query" : "Command"; %>
 
-public class <%= CommandName %><%= commandSuffix %> : Principal<%= commandSuffix %>Base<<%= ResponseType %>>
+public record <%= CommandName %><%= commandSuffix %> : Principal<%= commandSuffix %>Base<<%= ResponseType %>>
 {
-    public <%= CommandName %><%= commandSuffix %>(IPrincipal principal) : base(principal)
+    public <%= CommandName %><%= commandSuffix %>(ClaimsPrincipal? principal) : base(principal)
     {
     }
 }

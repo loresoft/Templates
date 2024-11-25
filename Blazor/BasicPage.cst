@@ -1,0 +1,13 @@
+﻿<%@ Template Language="C#" TargetLanguage="HTML" %>
+
+<%@ Property Name="PageTitle" Type="System.String" %>
+<%@ Property Name="RouteName" Type="System.String" %>
+
+@page "<%= PageTitle %>"
+
+<PageTitle><%= PageTitle %></PageTitle>
+
+<div class="container-fluid">
+    <h1><%= PageTitle %></h1>
+</div>
+

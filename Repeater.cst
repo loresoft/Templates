@@ -1,13 +1,10 @@
 ﻿<%@ Template Language="C#" TargetLanguage="Text" %>
 <%@ Assembly Name="CodeSmith.CustomProperties" %>
 <%@ Property Name="Items" Type="CodeSmith.CustomProperties.StringCollection" %>
-
 <% foreach(var item in Items) { %>
 <% if (string.IsNullOrEmpty(item)) { continue; } %>
-<% var targetFile = item.Replace("BristolPlace.CaseManagement.Core", "BristolPlace.CaseManagement.Shared").Trim(); %>
-<% var targetFolder = System.IO.Path.GetDirectoryName(targetFile); %>
-md "<%= targetFolder %>"
-git mv "<%= item.Trim() %>" "<%= targetFile %>"
+[JsonSerializable(typeof(<%= item %>))]
+[JsonSerializable(typeof(IReadOnlyCollection<<%= item %>>))]
 <% } %>
 <script runat="template">
 

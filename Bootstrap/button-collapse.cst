@@ -1,0 +1,27 @@
+﻿<%@ Template Language="C#" TargetLanguage="HTML" %>
+<%@ Property Name="Name" Type="System.String" %>
+<%@ Property Name="Items" Type="System.Collections.Generic.List<string>" Optional="True" %>
+<% var parentId = StringUtil.ToCamelCase(Name); %>
+<!-- <%= Name %> Menu -->
+<button class="btn btn-toggle align-items-center rounded collapsed" 
+        type="button"
+        data-bs-toggle="collapse" 
+        data-bs-target="#<%= parentId %>-collapse" 
+        aria-expanded="true">
+  <%= Name %>
+</button>
+<div class="collapse show" id="<%= parentId %>-collapse">
+    <ul class="btn-toggle-nav list-unstyled fw-normal pb-1 small">
+<% foreach(var item in Items) { %>
+<% var itemId = StringUtil.ToCamelCase(item); %>
+        <li>
+            <a id="nav-item-<%= parentId %>-<%= itemId %>-link"
+               class="link-dark rounded"
+               title="<%= item %>"
+               href="/<%= parentId.ToLower() %>/<%= itemId.ToLower() %>">
+                <%= item %>
+            </a>
+        </li>
+<% } %>
+    </ul>
+</div>
