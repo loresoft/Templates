@@ -2,6 +2,7 @@
 <%@ Property Name="InputName" Type="System.String" %>
 <%@ Property Name="ModelName" Type="System.String" Default="Model." %>
 <%@ Property Name="Required" Type="System.Boolean" Default="false" %>
+<%@ Property Name="Readonly" Type="System.Boolean" Default="false" %>
 <%
 var placeHolder = StringUtil.ToSpacedWords(InputName);
 %>
@@ -16,7 +17,12 @@ var placeHolder = StringUtil.ToSpacedWords(InputName);
                id="<%= InputName %>"
                name="<%= InputName %>"
                class="form-control"
+<% if (Readonly) { %>
+               readonly="true"
+<% } %>
                placeholder="<%= placeHolder %>" />
+<% if (!Readonly) { %>
     <ValidationMessage For="@(() => <%= ModelName %>.<%= InputName %>)" />
+<% } %>
 </div>
 
