@@ -1,0 +1,109 @@
+﻿<%@ Template Language="C#" TargetLanguage="HTML" %>
+
+<%@ Property Name="EntityType" Type="System.String" %>
+<%@ Property Name="EntityName" Type="System.String" %>
+<%@ Property Name="PageTitle" Type="System.String" %>
+<%@ Property Name="RouteName" Type="System.String" %>
+<%@ Property Name="RoutePath" Type="System.String" %>
+
+@page "<%= RoutePath %>"
+
+@inherits ListPageBase<<%= EntityType %>ReadModel, <%= EntityType %>ReadModel>
+
+<PageTitle><%= PageTitle %></PageTitle>
+
+<div class="container-fluid">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="@Constants.Routes.Home()">Home</a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">
+                <%= PageTitle %>
+            </li>
+        </ol>
+    </nav>
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5><%= PageTitle %></h5>
+                <div>
+                    <a href="@Constants.Routes.<%= RouteName %>.Edit(0)"
+                       title="Add <%= EntityName %>"
+                       class="btn btn-primary btn-sm">
+                        Add <%= EntityName %>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-body">
+            <DataGrid TItem="<%= EntityType %>ReadModel"
+                      DataProvider="LoadData"
+                      class="table"
+                      Filterable="true"
+                      Sortable="true"
+                      @ref="DataGrid">
+                <DataColumns>
+                    <DataColumn Property="x => x.Name"
+                                Title="Name"
+                                Width="280px"
+                                SortIndex="0">
+                        <Template Context="item">
+                            <a href="@Constants.Routes.<%= RouteName %>.Edit(item.Id)"
+                               class="d-block"
+                               title="Edit <%= EntityName %> @item.Name">
+                               @item.Name
+                            </a>
+                        </Template>
+                    </DataColumn>
+
+                    <DataColumn Property="x => x.Description"
+                                Title="Description" />
+
+                    <DataColumn Property="x => x.Updated"
+                                Title="Updated"
+                                Width="180px"
+                                Format="g" />
+
+                    <DataColumn Property="x => x.Id"
+                                Title="Action"
+                                Filterable="false"
+                                Width="100px">
+                        <Template Context="item">
+                            <a href="@Constants.Routes.<%= RouteName %>.Edit(item.Id)"
+                               class="btn btn-sm"
+                               title="Edit <%= EntityName %> @item.Name">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <button type="button"
+                                    class="btn btn-sm"
+                                    title="Delete <%= EntityName %> @item.Name"
+                                    @onclick="() => HandleDelete(item)">
+                                <i class="bi bi-trash3"></i>
+                            </button>
+                        </Template>
+                    </DataColumn>
+                </DataColumns>
+                <DataPagination Context="grid">
+                    <DataPager PageSize="10" />
+                    <DataSizer />
+                    <div>@grid.Pager.StartItem - @grid.Pager.EndItem of @grid.Pager.Total</div>
+                </DataPagination>
+            </DataGrid>
+        </div>
+
+        <div class="card-footer">
+            <a class="btn btn-sm btn-primary"
+               title="Add <%= EntityName %>"
+               href="@Constants.Routes.<%= RouteName %>.Edit(0)">
+                Add <%= EntityName %>
+            </a>
+        </div>
+    </div>
+</div>
+
+@code
+{
+
+}
